@@ -31,7 +31,6 @@ _ide_helper_models.php
 phpunit.xml
 phpstan.neon
 testbench.yaml
-/docs
 /coverage/vendor/
 
 # AI
@@ -39,24 +38,17 @@ testbench.yaml
 .claude/
 CLAUDE.md
 
-/.idea/
-/.vscode/
+# Editors (duplicate cleanup)
 /dev/
 /bootstrap/cache/
-composer.lock
-.phpunit.result.cache
+
+# Runtime files
 .pest
 .DS_Store
 *.log
 .env
 .env.testing
-# Stubs generados (mantener los archivos de ejemplo para los tests)
-# Los stubs son necesarios para los tests unitarios
-# Documentación de desarrollo (mantener solo README.md)
-CONFIGURATION.md
-USAGE.md
-DEVELOPER_COMMANDS.md
+
+# Development docs (moved to docs/ directory - now tracked)
 ESTRUCTURA.md
-USO_E_INTEGRACION_SOBRE_OTRO_PAQUETE.MD
 tests/README.md
-PROYECTO.md
