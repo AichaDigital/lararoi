@@ -1,0 +1,18 @@
+{
+    "valid": false,
+    "vat_number": "B99999999",
+    "country_code": "ES",
+    "name": "",
+    "address": "",
+    "request_date": null,
+    "api_source": "VATLAYER",
+    "raw_response": {
+        "valid": false,
+        "name": "",
+        "address": "",
+        "request_date": null,
+        "vat_number": "B99999999",
+        "country_code": "ES",
+        "api_source": "VATLAYER"
+    }
+}

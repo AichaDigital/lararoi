@@ -50,11 +50,8 @@ composer.lock
 *.log
 .env
 .env.testing
-# Stubs generados (mantener solo los de ejemplo)
-/tests/stubs/*_valid.json
-/tests/stubs/*_invalid.json
-!tests/stubs/vies_rest_valid.json
-!tests/stubs/vies_rest_invalid.json
+# Stubs generados (mantener los archivos de ejemplo para los tests)
+# Los stubs son necesarios para los tests unitarios
 # Documentación de desarrollo (mantener solo README.md)
 CONFIGURATION.md
 USAGE.md

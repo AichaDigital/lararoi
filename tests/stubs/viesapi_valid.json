@@ -1,0 +1,7 @@
+{
+    "error": true,
+    "error_type": "Aichadigital\\Lararoi\\Exceptions\\ApiUnavailableException",
+    "error_message": "API 'VIESAPI' is currently unavailable",
+    "vat_number": "B99999999",
+    "country_code": "ES"
+}

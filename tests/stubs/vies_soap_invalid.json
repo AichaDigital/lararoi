@@ -1,0 +1,18 @@
+{
+    "valid": false,
+    "vat_number": "B00000000",
+    "country_code": "ES",
+    "name": "---",
+    "address": "---",
+    "request_date": "2025-11-14+01:00",
+    "api_source": "VIES_SOAP",
+    "raw_response": {
+        "valid": false,
+        "name": "---",
+        "address": "---",
+        "request_date": "2025-11-14+01:00",
+        "vat_number": "B00000000",
+        "country_code": "ES",
+        "api_source": "VIES_SOAP"
+    }
+}
