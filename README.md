@@ -7,6 +7,9 @@
 [![Code Coverage](https://img.shields.io/codecov/c/github/aichadigital/lararoi?style=flat-square)](https://codecov.io/gh/aichadigital/lararoi)
 [![Total Downloads](https://img.shields.io/packagist/dt/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
 
+> **⚠️ BETA VERSION - Active Development**
+> This package is currently in beta (v0.1.x). The API and configuration may change significantly in future versions. Use in production at your own risk. We recommend pinning to a specific version in your `composer.json`.
+
 Agnostic package for intra-community NIF-VAT/VAT verification in Laravel.
 
 ## Description
@@ -61,12 +64,15 @@ if ($result['is_valid']) {
 
 ## Documentation
 
-See the documents in the repository:
-- `PROJECT.md` - Complete documentation of available APIs and services
-- `INTEGRATION_WITH_OTHER_PACKAGE.md` - Integration guide
-- `USAGE.md` - Basic usage guide
-- `CONFIGURATION.md` - Complete configuration guide
-- `DEVELOPER_COMMANDS.md` - Development commands for testing
+Complete documentation is available in the [`docs/`](docs/) directory:
+
+- **[Usage Guide](docs/usage.md)** - Basic usage, configuration, and examples
+- **[Configuration](docs/configuration.md)** - Detailed configuration options and environment variables
+- **[Integration Guide](docs/integration.md)** - How to integrate with other packages (e.g., Larabill)
+- **[Project Information](docs/project.md)** - Complete documentation of available APIs and services
+- **[Development Guide](docs/development.md)** - Development commands and testing with real APIs
+- **[Contributing](docs/contributing.md)** - Guidelines for developers and contributors
+- **[License](LICENSE.md)** - MIT License
 
 ## Testing & Quality
 
@@ -96,5 +102,11 @@ composer format
 
 ## License
 
-MIT
+The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+## Credits
+
+- [Abdelkarim Mateos](https://github.com/abkrim)
+- [Aicha Digital](https://github.com/aichadigital)
+- [All Contributors](../../contributors)
 

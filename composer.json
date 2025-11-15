@@ -1,6 +1,6 @@
 {
     "name": "aichadigital/lararoi",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "Agnostic package for intra-community NIF-VAT/VAT verification. Designed primarily for use with Larabill.",
     "type": "library",
     "keywords": [
