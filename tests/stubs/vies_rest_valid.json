@@ -1,0 +1,18 @@
+{
+    "valid": false,
+    "vat_number": "B99999999",
+    "country_code": "ES",
+    "name": "---",
+    "address": "---",
+    "request_date": "2025-11-14T18:46:10.188Z",
+    "api_source": "VIES_REST",
+    "raw_response": {
+        "valid": false,
+        "name": "---",
+        "address": "---",
+        "request_date": "2025-11-14T18:46:10.188Z",
+        "vat_number": "B99999999",
+        "country_code": "ES",
+        "api_source": "VIES_REST"
+    }
+}

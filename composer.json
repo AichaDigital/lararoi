@@ -1,0 +1,107 @@
+{
+    "name": "aichadigital/lararoi",
+    "version": "0.0.1",
+    "description": "Agnostic package for intra-community NIF-VAT/VAT verification. Designed primarily for use with Larabill.",
+    "type": "library",
+    "keywords": [
+        "laravel",
+        "vat",
+        "nif",
+        "iva",
+        "vies",
+        "aeat",
+        "verification",
+        "roi"
+    ],
+    "homepage": "https://github.com/aichadigital/lararoi",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Abdelkarim Mateos",
+            "email": "abdelkarim.mateos@castris.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "spatie/laravel-package-tools": "^1.16",
+        "illuminate/contracts": "^11.0||^12.0",
+        "illuminate/database": "^11.0||^12.0",
+        "illuminate/http": "^11.0||^12.0",
+        "illuminate/support": "^11.0||^12.0",
+        "guzzlehttp/guzzle": "^7.0",
+        "ext-soap": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.14",
+        "nunomaduro/collision": "^8.8",
+        "larastan/larastan": "^3.0",
+        "orchestra/testbench": "^10.0.0||^9.0.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-arch": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "spatie/laravel-ray": "^1.35",
+        "mockery/mockery": "^1.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Aichadigital\\Lararoi\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Aichadigital\\Lararoi\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": "@composer run prepare",
+        "prepare": "@php vendor/bin/testbench package:discover --ansi",
+        "analyse": "vendor/bin/phpstan analyse",
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "format": "vendor/bin/pint",
+        "test-parallel": "vendor/bin/pest --parallel",
+        "test-profile": "vendor/bin/pest --profile",
+        "phpstan": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "phpstan-baseline": "vendor/bin/phpstan analyse --generate-baseline --memory-limit=1G",
+        "phpinsights": "vendor/bin/phpinsights",
+        "phpinsights-fix": "vendor/bin/phpinsights fix",
+        "phpinsights-baseline": "vendor/bin/phpinsights baseline",
+        "quality": [
+            "@format",
+            "@phpstan",
+            "@test-coverage"
+        ],
+        "quality-full": [
+            "@format",
+            "@phpstan",
+            "@test-coverage",
+            "@test-mutate"
+        ],
+        "precommit": [
+            "@format",
+            "@phpstan",
+            "@test-parallel"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Aichadigital\\Lararoi\\LararoiServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
