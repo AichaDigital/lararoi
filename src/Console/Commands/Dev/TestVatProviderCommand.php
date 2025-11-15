@@ -16,9 +16,9 @@ use Illuminate\Support\Str;
 class TestVatProviderCommand extends Command
 {
     protected $signature = 'lararoi:dev:test-provider
-                            {provider : Provider name (vies_rest, vies_soap, isvat, vatlayer, viesapi, aeat)}
                             {vat : VAT number without country prefix}
                             {country : Country code (2 letters, e.g.: ES, DE, MT)}
+                            {provider? : Provider name (vies_rest, vies_soap, isvat, vatlayer, viesapi, aeat)}
                             {--json : Show response in JSON format}
                             {--all : Test all available providers}';
 
@@ -39,6 +39,15 @@ class TestVatProviderCommand extends Command
         }
 
         $providerName = $this->argument('provider');
+
+        if (! $providerName) {
+            $this->error('❌ Provider name is required when not using --all option');
+            $this->info('Usage: lararoi:dev:test-provider <vat> <country> <provider>');
+            $this->info('   or: lararoi:dev:test-provider <vat> <country> --all');
+
+            return self::FAILURE;
+        }
+
         $vatNumber = $this->argument('vat');
         $countryCode = strtoupper($this->argument('country'));
 
@@ -127,7 +136,7 @@ class TestVatProviderCommand extends Command
 
                 $this->line('  ✅ Valid: '.($result['valid'] ? '<fg=green>Yes</fg=green>' : '<fg=red>No</fg=red>'));
                 $this->line("  ⏱️  Time: {$duration}ms");
-                if ($result['name']) {
+                if (! empty($result['name'])) {
                     $this->line('  🏢 Name: '.Str::limit($result['name'], 50));
                 }
 

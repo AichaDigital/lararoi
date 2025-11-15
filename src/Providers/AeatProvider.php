@@ -54,6 +54,7 @@ class AeatProvider implements VatProviderInterface
         }
 
         $wsdl = $this->endpoint.'?wsdl';
+        $timeout = config('lararoi.timeout', 15);
 
         try {
             $options = [
@@ -61,6 +62,7 @@ class AeatProvider implements VatProviderInterface
                 'exceptions' => true,
                 'trace' => true,
                 'cache_wsdl' => WSDL_CACHE_BOTH,
+                'connection_timeout' => $timeout,
                 'stream_context' => stream_context_create([
                     'ssl' => [
                         'verify_peer' => true,

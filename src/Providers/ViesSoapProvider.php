@@ -28,12 +28,15 @@ class ViesSoapProvider implements VatProviderInterface
             ? 'https://ec.europa.eu/taxation_customs/vies/checkVatTestService.wsdl'
             : 'https://ec.europa.eu/taxation_customs/vies/checkVatService.wsdl';
 
+        $timeout = config('lararoi.timeout', 15);
+
         try {
             $client = new SoapClient($wsdl, [
                 'soap_version' => SOAP_1_1,
                 'exceptions' => true,
                 'trace' => true,
                 'cache_wsdl' => WSDL_CACHE_BOTH,
+                'connection_timeout' => $timeout,
             ]);
 
             $result = $client->checkVat([

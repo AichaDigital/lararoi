@@ -22,6 +22,10 @@
             "role": "Developer"
         }
     ],
+    "config": {
+        "process-timeout": 0,
+        "sort-packages": true
+    },
     "require": {
         "php": "^8.3",
         "spatie/laravel-package-tools": "^1.16",
@@ -34,9 +38,11 @@
         "ext-json": "*"
     },
     "require-dev": {
-        "laravel/pint": "^1.14",
-        "nunomaduro/collision": "^8.8",
         "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.14",
+        "mockery/mockery": "^1.5",
+        "nunomaduro/collision": "^8.8",
+        "nunomaduro/phpinsights": "^2.13",
         "orchestra/testbench": "^10.0.0||^9.0.0",
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-arch": "^4.0",
@@ -44,8 +50,7 @@
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
-        "spatie/laravel-ray": "^1.35",
-        "mockery/mockery": "^1.5"
+        "spatie/laravel-ray": "^1.35"
     },
     "autoload": {
         "psr-4": {
@@ -68,9 +73,9 @@
         "test-profile": "vendor/bin/pest --profile",
         "phpstan": "vendor/bin/phpstan analyse --memory-limit=1G",
         "phpstan-baseline": "vendor/bin/phpstan analyse --generate-baseline --memory-limit=1G",
-        "phpinsights": "vendor/bin/phpinsights",
-        "phpinsights-fix": "vendor/bin/phpinsights fix",
-        "phpinsights-baseline": "vendor/bin/phpinsights baseline",
+        "phpinsights": "vendor/bin/phpinsights --no-interaction --min-quality=75 --min-complexity=80 --min-architecture=70 --min-style=80",
+        "phpinsights-fix": "vendor/bin/phpinsights fix --no-interaction",
+        "phpinsights-baseline": "vendor/bin/phpinsights baseline --no-interaction",
         "quality": [
             "@format",
             "@phpstan",
@@ -79,6 +84,7 @@
         "quality-full": [
             "@format",
             "@phpstan",
+            "@phpinsights",
             "@test-coverage",
             "@test-mutate"
         ],
@@ -91,6 +97,7 @@
     "config": {
         "sort-packages": true,
         "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
             "pestphp/pest-plugin": true,
             "phpstan/extension-installer": true
         }

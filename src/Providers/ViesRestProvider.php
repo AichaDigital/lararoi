@@ -19,9 +19,10 @@ class ViesRestProvider implements VatProviderInterface
 
     public function __construct(?Client $httpClient = null)
     {
+        $timeout = config('lararoi.timeout', 15);
         $this->httpClient = $httpClient ?? new Client([
-            'timeout' => 10,
-            'connect_timeout' => 5,
+            'timeout' => $timeout,
+            'connect_timeout' => min(5, $timeout),
         ]);
     }
 
