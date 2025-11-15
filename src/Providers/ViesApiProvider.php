@@ -28,9 +28,10 @@ class ViesApiProvider implements VatProviderInterface
         ?string $ip = null
     ) {
         $config = \config('lararoi.provider_config.viesapi', []);
+        $timeout = config('lararoi.timeout', 15);
         $this->httpClient = $httpClient ?? new Client([
-            'timeout' => 10,
-            'connect_timeout' => 5,
+            'timeout' => $timeout,
+            'connect_timeout' => min(5, $timeout),
         ]);
         $this->apiKey = $apiKey ?? $config['api_key'] ?? null;
         $this->apiSecret = $apiSecret ?? $config['api_secret'] ?? null;

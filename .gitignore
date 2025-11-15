@@ -15,6 +15,7 @@ yarn-error.log
 .phpunit.cache
 .phpunit.result.cache
 /build
+.phpinsights_baseline.json
 
 # IDE Helper
 _ide_helper.php
@@ -36,6 +37,7 @@ testbench.yaml
 # AI
 .cursor/
 .claude/
+CLAUDE.md
 
 /.idea/
 /.vscode/

@@ -11,7 +11,20 @@ return [
     | Default: 24 hours (86400 seconds)
     |
     */
-    'cache_ttl' => env('LARAROI_CACHE_TTL', 86400),
+    'cache_ttl' => env('CACHE_TTL', 86400),
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Timeout
+    |--------------------------------------------------------------------------
+    |
+    | Maximum time in seconds to wait for an API response.
+    | If a provider does not respond within this time, the system
+    | will automatically try the next provider in the fallback order.
+    | Default: 15 seconds
+    |
+    */
+    'timeout' => env('API_TIMEOUT', 15),
 
     /*
     |--------------------------------------------------------------------------
@@ -22,21 +35,21 @@ return [
     | until one responds correctly.
     |
     | Available FREE providers:
-    | - 'vies_rest': VIES REST API (unofficial but simpler)
-    | - 'vies_soap': VIES SOAP API (official)
-    | - 'isvat': isvat.eu (free with 100/month limit)
-    | - 'aeat': AEAT Web Service (Spain only, requires certificate)
+    | - 'aeat': AEAT Web Service (Spain only, requires certificate) - ⭐⭐⭐⭐⭐ Most reliable
+    | - 'vies_soap': VIES SOAP API (official) - ⭐⭐⭐
+    | - 'vies_rest': VIES REST API (unofficial but simpler) - ⭐⭐
+    | - 'isvat': isvat.eu (free with 100/month limit) - ⭐⭐⭐
     |
     | Available PAID providers:
-    | - 'vatlayer': vatlayer.com (100 queries/month free, then paid)
-    | - 'viesapi': viesapi.eu (free test plan, then paid)
+    | - 'viesapi': viesapi.eu (free test plan, then paid) - ⭐⭐⭐⭐⭐
+    | - 'vatlayer': vatlayer.com (100 queries/month free, then paid) - ⭐⭐⭐⭐
     |
-    | Recommended order: free first, then paid as fallback
+    | Default order: AEAT first (Spain), then official VIES, then free alternatives
     |
     */
-    'providers_order' => env('LARAROI_PROVIDERS_ORDER', 'vies_rest,vies_soap,isvat,vatlayer,viesapi')
-        ? explode(',', env('LARAROI_PROVIDERS_ORDER', 'vies_rest,vies_soap,isvat,vatlayer,viesapi'))
-        : ['vies_rest', 'vies_soap', 'isvat', 'vatlayer', 'viesapi'],
+    'providers_order' => env('PROVIDERS_ORDER', 'aeat,vies_soap,vies_rest,isvat')
+        ? array_map('trim', explode(',', env('PROVIDERS_ORDER', 'aeat,vies_soap,vies_rest,isvat')))
+        : ['aeat', 'vies_soap', 'vies_rest', 'isvat'],
 
     /*
     |--------------------------------------------------------------------------
@@ -56,7 +69,7 @@ return [
         | Useful for development and testing.
         |
         */
-        'test_mode' => env('LARAROI_VIES_TEST_MODE', false),
+        'test_mode' => env('VIES_TEST_MODE', false),
     ],
 
     /*
@@ -87,7 +100,7 @@ return [
         'passphrase' => env('CERT_P12_PASSWORD'),
 
         // Endpoint (default: personal/representative)
-        'endpoint' => env('LARAROI_AEAT_ENDPOINT',
+        'endpoint' => env('AEAT_ENDPOINT',
             'https://www1.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP'),
     ],
 
@@ -148,7 +161,7 @@ return [
         | in Laravel logs. Useful for auditing and debugging.
         |
         */
-        'enabled' => env('LARAROI_LOGGING_ENABLED', true),
+        'enabled' => env('LOGGING_ENABLED', true),
 
         /*
         |--------------------------------------------------------------------------
@@ -159,6 +172,6 @@ return [
         | Options: 'debug', 'info', 'warning', 'error'
         |
         */
-        'level' => env('LARAROI_LOGGING_LEVEL', 'info'),
+        'level' => env('LOGGING_LEVEL', 'info'),
     ],
 ];
