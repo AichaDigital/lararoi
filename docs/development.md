@@ -54,7 +54,6 @@ php dev/run-command.php lararoi:dev:test-provider B12345678 ES --all
 **Parameters:**
 - `vat`: VAT number without country prefix
 - `country`: Country code (2 letters)
-- `provider`: Provider name (vies_rest, vies_soap, isvat, vatlayer, viesapi, aeat) - optional when using --all
 
 **Options:**
 - `--json`: Show response in JSON format
@@ -106,7 +105,6 @@ According to project documentation:
 |----------|-------------|------|---------------|
 | **VIES SOAP** | ⭐⭐⭐ | Official | ✅ Officially documented |
 | **VIES REST** | ⭐⭐ | Unofficial | ⚠️ Not documented, may change |
-| **AEAT** | ⭐⭐⭐⭐⭐ | Official | ✅ Very reliable (Spain only) |
 | **viesapi.eu** | ⭐⭐⭐⭐⭐ | Third-party | ✅ Well documented, with support |
 | **vatlayer** | ⭐⭐⭐⭐ | Third-party | ✅ Well documented |
 | **isvat.eu** | ⭐⭐⭐ | Third-party | ⚠️ Free, no support |
@@ -115,7 +113,6 @@ According to project documentation:
 
 1. **For basic tests:** Use VIES REST or SOAP (free)
 2. **For production tests:** Use viesapi.eu or vatlayer (more reliable)
-3. **For Spain:** Use AEAT if you have certificate configured
 
 ---
 
@@ -161,7 +158,6 @@ php dev/run-command.php lararoi:dev:test-provider 320889633 DE isvat
 
 If a provider shows "Not available":
 - **Paid providers:** Verify you have the API key configured in `.env`
-- **AEAT:** Verify you have the certificate configured
 - **VIES:** Should always be available (verify your internet connection)
 
 ### Timeout errors

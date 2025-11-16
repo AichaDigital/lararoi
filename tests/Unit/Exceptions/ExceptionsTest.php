@@ -20,9 +20,9 @@ describe('ApiUnavailableException', function () {
     });
 
     it('can retrieve API source', function () {
-        $exception = new ApiUnavailableException('AEAT');
+        $exception = new ApiUnavailableException('VIES');
 
-        expect($exception->getApiSource())->toBe('AEAT');
+        expect($exception->getApiSource())->toBe('VIES');
     });
 
     it('has 503 error code', function () {

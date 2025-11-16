@@ -1,7 +1,0 @@
-{
-    "error": true,
-    "error_type": "Aichadigital\\Lararoi\\Exceptions\\ApiUnavailableException",
-    "error_message": "API 'AEAT' is currently unavailable",
-    "vat_number": "B00000000",
-    "country_code": "ES"
-}

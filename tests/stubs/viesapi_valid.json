@@ -1,7 +1,13 @@
 {
-    "error": true,
-    "error_type": "Aichadigital\\Lararoi\\Exceptions\\ApiUnavailableException",
-    "error_message": "API 'VIESAPI' is currently unavailable",
-    "vat_number": "B99999999",
-    "country_code": "ES"
+  "uid": "e1e1322c96f68248",
+  "countryCode": "IE",
+  "vatNumber": "6364992H",
+  "valid": true,
+  "traderName": "ADOBE SYSTEMS SOFTWARE IRELAND LTD",
+  "traderCompanyType": "---",
+  "traderAddress": "4-6 RIVER WALK, CITYWEST BUSINESS CAMPUS\nSAGGART, DUBLIN 24",
+  "id": "WAPI123456789",
+  "date": "2025-11-15",
+  "source": "https://ec.europa.eu",
+  "requestDate": "2025-11-15"
 }

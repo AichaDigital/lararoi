@@ -26,33 +26,56 @@ php artisan migrate
 Add to `.env` file:
 
 ```env
+# ============================================
+# Cache Configuration
+# ============================================
+# Enable/disable caching (default: true)
+CACHE_ENABLED=true
+
 # Cache TTL in seconds (default: 86400 = 24 hours)
 CACHE_TTL=86400
 
+# ============================================
+# General Configuration
+# ============================================
 # API Timeout in seconds (default: 15)
-# If a provider doesn't respond within this time, it will try the next one
 API_TIMEOUT=15
 
 # VIES test mode (uses test service for development)
 VIES_TEST_MODE=false
 
-# Provider order (comma-separated, default: aeat,vies_soap,vies_rest,isvat)
-# Recommended: AEAT first (most reliable), then official VIES, then free alternatives
-PROVIDERS_ORDER=aeat,vies_soap,vies_rest,isvat
+# Provider order (comma-separated)
+PROVIDERS_ORDER=vies_soap,vies_rest,isvat
 
-# Paid providers (optional - generic shared variables)
-VATLAYER_KEY=your_api_key_here
-VIESAPI_KEY=your_api_key_here
-VIESAPI_SECRET=your_secret_here  # Optional, second value if provided
-VIESAPI_IP=188.34.128.203        # Optional, IP for whitelist
+# ============================================
+# Paid Providers (Optional)
+# ============================================
+VATLAYER_ENABLED=false
+VATLAYER_KEY=
 
-# Certificate for AEAT (Spain only)
-# Generic variables shared between packages
-CERT_P12_PATH=/path/to/certificate.p12
-CERT_P12_PASSWORD=your_password
-AEAT_ENDPOINT=https://www1.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP
+VIESAPI_ENABLED=false
+VIESAPI_KEY=
+VIESAPI_SECRET=
+VIESAPI_IP=
 
+# IsVAT
+ISVAT_USE_LIVE=false
+
+# ============================================
+# Model Configuration (Optional)
+# ============================================
+# Custom model class (must implement VatVerificationModelInterface)
+# VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
+
+# Primary key column name
+# VAT_VERIFICATION_PRIMARY_KEY=id
+
+# Foreign key name for relationships
+# VAT_VERIFICATION_FOREIGN_KEY=vat_verification_id
+
+# ============================================
 # Logging
+# ============================================
 LOGGING_ENABLED=true
 LOGGING_LEVEL=info  # Options: debug, info, warning, error
 ```
@@ -79,7 +102,6 @@ This allows:
 **Certificate format:**
 - Must be a PKCS#12 file (`.p12` or `.pfx`)
 - Can be individual or company representative certificate
-- Both are valid for AEAT Web Service
 
 ## Basic Usage
 
@@ -106,16 +128,165 @@ if ($result['is_valid']) {
 
 ```php
 [
-    'is_valid' => true,              // bool: Is the VAT valid?
-    'vat_code' => 'ESB12345678',     // string: Complete VAT code
-    'country_code' => 'ES',          // string: Country code
-    'company_name' => '...',         // string|null: Company name
-    'company_address' => '...',      // string|null: Address
-    'api_source' => 'VIES_REST',     // string: Provider used
-    'cached' => false,               // bool: From cache?
+    'is_valid' => true,                // bool: Is the VAT valid?
+    'vat_code' => 'ESB12345678',       // string: Complete VAT code
+    'country_code' => 'ES',            // string: Country code
+    'company_name' => '...',           // string|null: Company name
+    'company_address' => '...',        // string|null: Address
+    'api_source' => 'VIES_REST',       // string: Provider used
+    'cached' => false,                 // bool: From cache? (backward compatibility)
+    'cache_status' => 'fresh',         // string: 'fresh', 'cached', or 'refreshed'
     'request_date' => '2025-01-01...', // string|null: Verification date
-    'response_data' => [...]         // array: Complete response data
+    'response_data' => [...]           // array: Complete response data
 ]
+```
+
+**Cache Status Values:**
+
+- **`'fresh'`**: Newly verified from API (first time or cache disabled)
+- **`'cached'`**: Returned from valid cache (memory or database)
+- **`'refreshed'`**: Cache expired, re-queried and saved new data
+
+## Advanced Usage
+
+### Agnostic Mode (No Cache)
+
+For maximum flexibility and minimal footprint, you can disable caching entirely:
+
+```env
+CACHE_ENABLED=false
+```
+
+With cache disabled:
+
+```php
+$result = $service->verifyVatNumber('B12345678', 'ES');
+
+// Always returns fresh data from API
+// cache_status will always be 'fresh'
+// No database persistence
+// No memory cache
+```
+
+**Use cases for agnostic mode:**
+- Testing and development
+- One-time verifications
+- When you have your own caching strategy
+- Minimal database footprint
+
+### Custom Model with Relationships
+
+You can use your own model with custom primary keys and relationships:
+
+#### 1. Create your custom model
+
+```php
+namespace App\Models;
+
+use Aichadigital\Lararoi\Models\VatVerification as BaseVatVerification;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class CustomVatVerification extends BaseVatVerification
+{
+    // Custom primary key (e.g., UUID)
+    protected $primaryKey = 'uuid';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    // Define relationship to Customer
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_uuid', 'uuid');
+    }
+}
+```
+
+#### 2. Configure in `config/lararoi.php`
+
+```php
+'models' => [
+    'vat_verification' => [
+        'class' => \App\Models\CustomVatVerification::class,
+        'primary_key' => 'uuid',
+        'foreign_key' => 'custom_vat_uuid',
+    ],
+],
+```
+
+#### 3. Or via environment
+
+```env
+VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
+VAT_VERIFICATION_PRIMARY_KEY=uuid
+VAT_VERIFICATION_FOREIGN_KEY=custom_vat_uuid
+```
+
+#### 4. Customer Model (One-to-One Relationship)
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class Customer extends Model
+{
+    protected $primaryKey = 'uuid';
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    // Customer has one VAT verification (for validation data)
+    // The VAT number itself is stored in customers.vat_number field
+    public function vatVerification(): HasOne
+    {
+        return $this->hasOne(
+            \App\Models\CustomVatVerification::class,
+            'custom_vat_uuid',  // foreign key in vat_verifications table
+            'uuid'              // local key in customers table
+        );
+    }
+}
+```
+
+**Migration example:**
+
+```php
+Schema::table('customers', function (Blueprint $table) {
+    $table->string('vat_number')->nullable();      // Stores the VAT number
+    $table->string('vat_country_code', 2)->nullable();
+    $table->uuid('custom_vat_uuid')->nullable();   // FK to vat_verifications
+
+    $table->foreign('custom_vat_uuid')
+        ->references('uuid')
+        ->on('vat_verifications')
+        ->nullOnDelete();
+});
+```
+
+**Usage:**
+
+```php
+$customer = Customer::find($uuid);
+
+// Verify and store VAT
+$result = app(VatVerificationServiceInterface::class)
+    ->verifyVatNumber($customer->vat_number, $customer->vat_country_code);
+
+if ($result['is_valid']) {
+    $vatVerification = CustomVatVerification::findByVatCodeAndCountry(
+        $result['vat_code'],
+        $result['country_code']
+    );
+
+    // Link to customer
+    $customer->custom_vat_uuid = $vatVerification->uuid;
+    $customer->save();
+}
+
+// Access verification data
+$customer->load('vatVerification');
+echo $customer->vatVerification->company_name;
+echo $customer->vatVerification->company_address;
 ```
 
 ## Error Handling
@@ -169,14 +340,12 @@ class RoiVerificationService
 You can configure the provider order in `.env`:
 
 ```env
-PROVIDERS_ORDER=aeat,vies_soap,vies_rest,isvat
 ```
 
 Or directly in `config/lararoi.php`:
 
 ```php
 'providers_order' => [
-    'aeat',         // ⭐⭐⭐⭐⭐ AEAT (Spain only, most reliable, requires certificate)
     'vies_soap',    // ⭐⭐⭐ VIES SOAP (official EU service)
     'vies_rest',    // ⭐⭐ VIES REST (unofficial but functional)
     'isvat',        // ⭐⭐⭐ isvat.eu (free, 100/month limit)
@@ -185,7 +354,6 @@ Or directly in `config/lararoi.php`:
 ],
 ```
 
-**Recommended order**: AEAT first for Spain (most reliable), then official VIES SOAP, then free alternatives.
 
 ### Available Providers
 
@@ -199,7 +367,6 @@ Or directly in `config/lararoi.php`:
 - **viesapi**: viesapi.eu (free test plan, then paid)
 
 #### Special (Spain only)
-- **aeat**: AEAT Web Service (official, free, requires digital certificate)
   - Uses generic variables: `CERT_P12_PATH` and `CERT_P12_PASSWORD`
   - Works with individual or company representative certificate
 
@@ -241,9 +408,30 @@ Or with PHPUnit directly:
 
 ## Important Notes
 
-1. **Cache**: Verifications are automatically cached for 24 hours (configurable)
-2. **Fallback**: If a provider fails, it automatically tries the next one in the configured order
-3. **Persistence**: Verifications are saved to database to avoid repeated calls
-4. **Logging**: All verifications are logged (if enabled)
-5. **Certificates**: Certificate variables are generic and shared between packages
-6. **AEAT**: Only works for Spanish NIFs and requires configured digital certificate
+1. **Cache Flexibility**:
+   - Cache can be enabled/disabled via `CACHE_ENABLED`
+   - Configurable TTL (default: 24 hours)
+   - Three cache states: `fresh`, `cached`, `refreshed`
+   - Disable cache for agnostic mode (minimal footprint)
+
+2. **Model Customization**:
+   - Use your own model class (must implement `VatVerificationModelInterface`)
+   - Custom primary keys supported (UUID, ULID, etc.)
+   - Custom foreign keys for relationships
+
+3. **Fallback System**:
+   - If a provider fails, automatically tries the next one
+   - Configurable provider order
+
+4. **Database Persistence**:
+   - Verifications saved to database (when cache enabled)
+   - Historical record for auditing
+   - Can be linked to your customer/client models
+
+5. **Logging**:
+   - All verifications can be logged (configurable)
+   - Levels: debug, info, warning, error
+
+6. **Generic Variables**:
+   - Certificate and API key variables are shared between packages
+   - Single configuration for multiple packages

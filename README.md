@@ -3,6 +3,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/aichadigital/lararoi/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/aichadigital/lararoi/actions/workflows/run-tests.yml)
 [![PHPStan](https://img.shields.io/github/actions/workflow/status/aichadigital/lararoi/phpstan.yml?branch=main&label=phpstan&style=flat-square)](https://github.com/aichadigital/lararoi/actions/workflows/phpstan.yml)
+[![PHP Insights](https://img.shields.io/badge/PHP%20Insights-84.5%25-brightgreen?style=flat-square)](https://github.com/nunomaduro/phpinsights)
 [![Code Style](https://img.shields.io/github/actions/workflow/status/aichadigital/lararoi/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/aichadigital/lararoi/actions/workflows/fix-php-code-style-issues.yml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/aichadigital/lararoi?style=flat-square)](https://codecov.io/gh/aichadigital/lararoi)
 [![Total Downloads](https://img.shields.io/packagist/dt/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
@@ -22,7 +23,6 @@ Lararoi is an independent package that provides services to verify tax identific
 - ✅ Support for multiple API providers (free and paid)
 - ✅ Integrated caching system (memory + database)
 - ✅ Automatic fallback between providers
-- ✅ Support for AEAT (Spain only, requires certificate)
 - ✅ Robust error handling
 - ✅ Logging and auditing
 - ✅ Development commands for testing with real APIs

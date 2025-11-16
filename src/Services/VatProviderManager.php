@@ -23,7 +23,7 @@ class VatProviderManager
         $this->providers = collect();
 
         // Use provided order or try to get from config (if Laravel is available)
-        if (! empty($providerOrder)) {
+        if ($providerOrder !== []) {
             $this->providerOrder = $providerOrder;
         } else {
             // Try to get from config if Laravel helper is available

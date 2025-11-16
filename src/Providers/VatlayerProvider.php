@@ -4,8 +4,9 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -13,19 +14,15 @@ use Illuminate\Support\Facades\Log;
  */
 class VatlayerProvider implements VatProviderInterface
 {
-    protected Client $httpClient;
-
     protected ?string $apiKey;
 
-    public function __construct(?Client $httpClient = null, ?string $apiKey = null)
+    protected int $timeout;
+
+    public function __construct(?string $apiKey = null, ?int $timeout = null)
     {
-        $timeout = config('lararoi.timeout', 15);
-        $this->httpClient = $httpClient ?? new Client([
-            'timeout' => $timeout,
-            'connect_timeout' => min(5, $timeout),
-        ]);
         $config = \config('lararoi.provider_config.vatlayer', []);
         $this->apiKey = $apiKey ?? $config['api_key'] ?? null;
+        $this->timeout = $timeout ?? config('lararoi.timeout', 15);
     }
 
     public function verify(string $vatNumber, string $countryCode): array
@@ -35,14 +32,18 @@ class VatlayerProvider implements VatProviderInterface
         }
 
         $url = 'http://apilayer.net/api/validate';
-        $params = [
-            'access_key' => $this->apiKey,
-            'vat_number' => strtoupper($countryCode).$vatNumber,
-        ];
 
         try {
-            $response = $this->httpClient->get($url, ['query' => $params]);
-            $data = json_decode($response->getBody()->getContents(), true);
+            $response = Http::timeout($this->timeout)
+                ->acceptJson()
+                ->get($url, [
+                    'access_key' => $this->apiKey,
+                    'vat_number' => strtoupper($countryCode).$vatNumber,
+                ]);
+
+            $response->throw();
+
+            $data = $response->json();
 
             if (isset($data['error'])) {
                 throw new ApiUnavailableException('VATLAYER', new \Exception($data['error']['info'] ?? 'API error'));
@@ -57,14 +58,22 @@ class VatlayerProvider implements VatProviderInterface
                 'country_code' => $data['country_code'] ?? strtoupper($countryCode),
                 'api_source' => 'VATLAYER',
             ];
-        } catch (GuzzleException $e) {
-            Log::warning('VATLAYER API error', [
+        } catch (RequestException $e) {
+            Log::warning('VATLAYER API request error', [
                 'country' => $countryCode,
                 'vat' => $vatNumber,
                 'error' => $e->getMessage(),
             ]);
 
             throw new ApiUnavailableException('VATLAYER', new \Exception($e->getMessage(), $e->getCode(), $e));
+        } catch (ConnectionException $e) {
+            Log::warning('VATLAYER API connection error', [
+                'country' => $countryCode,
+                'vat' => $vatNumber,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ApiUnavailableException('VATLAYER', new \Exception($e->getMessage(), 0, $e));
         }
     }
 
@@ -75,7 +84,7 @@ class VatlayerProvider implements VatProviderInterface
 
     public function isAvailable(): bool
     {
-        return ! empty($this->apiKey);
+        return $this->apiKey !== null && $this->apiKey !== '';
     }
 
     public function isFree(): bool

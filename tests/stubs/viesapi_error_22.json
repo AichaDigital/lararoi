@@ -1,0 +1,8 @@
+{
+  "error": {
+    "uid": "123abc456def",
+    "code": 22,
+    "description": "EU VAT number is invalid",
+    "details": ""
+  }
+}
