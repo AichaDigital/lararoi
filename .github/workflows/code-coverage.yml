@@ -18,6 +18,7 @@ on:
       - 'phpunit.xml.dist'
       - 'composer.json'
       - 'composer.lock'
+  workflow_dispatch:
 
 jobs:
   coverage:
