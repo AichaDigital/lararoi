@@ -109,4 +109,3 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 - [Abdelkarim Mateos](https://github.com/abkrim)
 - [Aicha Digital](https://github.com/aichadigital)
 - [All Contributors](../../contributors)
-
