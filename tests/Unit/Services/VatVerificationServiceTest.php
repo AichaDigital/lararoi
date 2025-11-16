@@ -90,6 +90,131 @@ describe('VatVerificationService - Caching', function () {
             $this->markTestSkipped('API unavailable');
         }
     });
+
+    it('includes cache_status field in response', function () {
+        $service = app(VatVerificationServiceInterface::class);
+
+        try {
+            $result = $service->verifyVatNumber('99999999', 'ES');
+
+            expect($result)->toHaveKey('cache_status');
+            expect($result['cache_status'])->toBeIn(['fresh', 'cached', 'refreshed']);
+        } catch (\Exception $e) {
+            // API might be unavailable
+            $this->markTestSkipped('API unavailable');
+        }
+    });
+
+    it('returns fresh status on first verification', function () {
+        $service = app(VatVerificationServiceInterface::class);
+
+        // Clear any existing cache
+        \Illuminate\Support\Facades\Cache::flush();
+        \Aichadigital\Lararoi\Models\VatVerification::query()->delete();
+
+        try {
+            $result = $service->verifyVatNumber('B99999999', 'ES');
+
+            expect($result['cache_status'])->toBe('fresh');
+            expect($result['cached'])->toBeFalse();
+        } catch (\Exception $e) {
+            // API might be unavailable
+            $this->markTestSkipped('API unavailable');
+        }
+    });
+
+    it('returns cached status on subsequent verifications', function () {
+        $service = app(VatVerificationServiceInterface::class);
+
+        try {
+            // First call
+            $service->verifyVatNumber('B88888888', 'ES');
+
+            // Second call - should return cached
+            $result = $service->verifyVatNumber('B88888888', 'ES');
+
+            expect($result['cache_status'])->toBe('cached');
+            expect($result['cached'])->toBeTrue();
+        } catch (\Exception $e) {
+            // API might be unavailable
+            $this->markTestSkipped('API unavailable');
+        }
+    });
+});
+
+describe('VatVerificationService - Cache Configuration', function () {
+    it('skips cache when cache is disabled via config', function () {
+        // Disable cache temporarily
+        config(['lararoi.cache.enabled' => false]);
+
+        $service = app(VatVerificationServiceInterface::class);
+
+        try {
+            $result = $service->verifyVatNumber('B77777777', 'ES');
+
+            // Should always return fresh when cache is disabled
+            expect($result['cache_status'])->toBe('fresh');
+            expect($result['cached'])->toBeFalse();
+        } catch (\Exception $e) {
+            // API might be unavailable
+            $this->markTestSkipped('API unavailable');
+        } finally {
+            // Re-enable cache
+            config(['lararoi.cache.enabled' => true]);
+        }
+    });
+
+    it('does not store in database when cache is disabled', function () {
+        // Disable cache and clear database
+        config(['lararoi.cache.enabled' => false]);
+        \Aichadigital\Lararoi\Models\VatVerification::query()->delete();
+
+        $service = app(VatVerificationServiceInterface::class);
+
+        try {
+            $service->verifyVatNumber('B66666666', 'ES');
+
+            // Verify it was NOT stored in database
+            $verification = \Aichadigital\Lararoi\Models\VatVerification::findByVatCodeAndCountry('ESB66666666', 'ES');
+
+            expect($verification)->toBeNull();
+        } catch (\Exception $e) {
+            // API might be unavailable
+            $this->markTestSkipped('API unavailable');
+        } finally {
+            // Re-enable cache
+            config(['lararoi.cache.enabled' => true]);
+        }
+    });
+
+    it('respects custom cache TTL from config', function () {
+        $originalTtl = config('lararoi.cache.ttl');
+
+        // Set a very short TTL for testing
+        config(['lararoi.cache.ttl' => 1]);
+
+        $service = app(VatVerificationServiceInterface::class);
+
+        try {
+            // First call
+            $service->verifyVatNumber('B55555555', 'ES');
+
+            // Wait for cache to expire
+            sleep(2);
+
+            // Second call - should be refreshed
+            $result = $service->verifyVatNumber('B55555555', 'ES');
+
+            // Should either be 'fresh' or 'refreshed' depending on database state
+            expect($result['cache_status'])->toBeIn(['fresh', 'refreshed']);
+        } catch (\Exception $e) {
+            // API might be unavailable
+            $this->markTestSkipped('API unavailable');
+        } finally {
+            // Restore original TTL
+            config(['lararoi.cache.ttl' => $originalTtl]);
+        }
+    });
 });
 
 describe('VatVerificationService - Error Handling', function () {

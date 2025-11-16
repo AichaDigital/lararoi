@@ -6,7 +6,6 @@
 
 1. [Introducción](#introducción)
 2. [VIES - Comisión Europea (Servicios Oficiales)](#vies---comisión-europea-servicios-oficiales)
-3. [AEAT - Agencia Tributaria Española](#aeat---agencia-tributaria-española)
 4. [Servicios de Terceros](#servicios-de-terceros)
 5. [Comparativa y Recomendaciones](#comparativa-y-recomendaciones)
 6. [Ejemplos de Implementación](#ejemplos-de-implementación)
@@ -211,13 +210,11 @@ Permite consultas manuales individuales sin necesidad de API.
 
 ---
 
-## AEAT - Agencia Tributaria Española
 
 ### 1. Web Service de Calidad de Datos Identificativos
 
 **Estado:** ✅ Oficial, requiere certificado digital
 
-Este servicio permite verificar **NIF + Nombre/Razón Social** de contribuyentes españoles según los registros de la AEAT.
 
 #### Características Principales
 
@@ -247,7 +244,6 @@ https://www10.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP
 
 ```xml
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
-                  xmlns:vnif="http://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/burt/jdit/ws/VNifV2Ent.xsd">
    <soapenv:Header/>
    <soapenv:Body>
       <vnif:VNifV2Ent>
@@ -301,7 +297,6 @@ Entrada: VNifV2Ent.xsd
 Salida: VNifV2Sal.xsd
 ```
 
-Disponibles en: https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/burt/jdit/ws/
 
 #### Documentación Oficial
 
@@ -310,7 +305,6 @@ https://sede.agenciatributaria.gob.es/static_files/Sede/Biblioteca/Manual/Tecnic
 
 #### Ventajas
 
-- ✅ Fuente oficial AEAT
 - ✅ Consultas masivas (10K por petición)
 - ✅ Valida coincidencia NIF-Nombre
 - ✅ Para personas físicas devuelve nombre completo
@@ -327,7 +321,6 @@ https://sede.agenciatributaria.gob.es/static_files/Sede/Biblioteca/Manual/Tecnic
 
 1. Solicitar autorización mediante formulario oficial
 2. Indicar certificado a usar (para integración y producción)
-3. Esperar aprobación de AEAT
 4. Configurar certificados en aplicación
 5. Realizar pruebas en entorno de integración
 6. Pasar a producción
@@ -597,7 +590,6 @@ Desde $49/mes - Contactar para Enterprise
 |----------|------|--------|------|---------|---------|------------|
 | **VIES SOAP** | Oficial | Gratis | No | Concurrencia | ❌ | ⭐⭐⭐ |
 | **VIES REST** | No oficial | Gratis | No | Concurrencia | ❌ | ⭐⭐ |
-| **AEAT WS** | Oficial | Gratis | Certificado | 10K/req | Limited | ⭐⭐⭐⭐⭐ |
 | **viesapi.eu** | Tercero | Desde €9 | API Key | Por plan | ✅ | ⭐⭐⭐⭐⭐ |
 | **vatlayer** | Tercero | Desde $0 | API Key | 100-100K | Limited | ⭐⭐⭐⭐ |
 | **isvat.eu** | Tercero | Gratis | No | 100/mes | ❌ | ⭐⭐⭐ |
@@ -653,7 +645,6 @@ Ideal para: SaaS internacional, empresas con compliance complejo
 
 #### 5. Solo Validación NIF Español
 
-**Recomendado: AEAT Web Service**
 ```
 Pros: Oficial, gratis, hasta 10K/petición
 Contras: Requiere certificado, setup complejo
@@ -754,14 +745,12 @@ var_dump($result);
 ?>
 ```
 
-### 4. Python - AEAT Web Service con Certificado
 
 ```python
 from zeep import Client
 from zeep.wsse.signature import Signature
 from lxml import etree
 
-def validate_nif_aeat(nif, nombre, cert_path, key_path):
     wsdl = 'https://www1.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP?wsdl'
     
     # Configurar certificado
@@ -788,7 +777,6 @@ def validate_nif_aeat(nif, nombre, cert_path, key_path):
         return {'error': str(e)}
 
 # Uso
-result = validate_nif_aeat(
     '12345678Z', 
     'GARCIA LOPEZ JUAN',
     '/path/to/cert.pem',
@@ -886,7 +874,6 @@ console.log(result);
 ⚠️ **Importante:** Cuando una empresa se da de alta en el ROI, la información **NO está disponible inmediatamente** en VIES.
 
 **Tiempos típicos:**
-- Alta ROI en España (Modelo 036): Inmediato en AEAT
 - Sincronización con VIES: **24-72 horas**
 - Algunos países: Hasta **7 días**
 
@@ -1131,7 +1118,6 @@ if (!isValidFormat('ES', 'B12345678')) {
 - FAQ: https://ec.europa.eu/taxation_customs/vies/faq.html
 - Información técnica: https://ec.europa.eu/taxation_customs/vies/technicalInformation.html
 
-**AEAT:**
 - Servicios Web: https://sede.agenciatributaria.gob.es/
 - Manual WS: https://sede.agenciatributaria.gob.es/static_files/Sede/Biblioteca/Manual/Tecnicos/WS/
 
@@ -1169,7 +1155,6 @@ if (!isValidFormat('ES', 'B12345678')) {
 
 1. **Para la mayoría de casos:** Empezar con VIES REST no oficial + fallback a SOAP
 2. **Para producción seria:** viesapi.eu o vatlayer según volumen
-3. **Para solo España:** Web Service AEAT (si puedes gestionar certificados)
 4. **Para enterprise:** Vatstack si necesitas compliance todo-en-uno
 
 ### Mejores Prácticas

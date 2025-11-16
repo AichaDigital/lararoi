@@ -4,8 +4,9 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -15,15 +16,11 @@ use Illuminate\Support\Facades\Log;
  */
 class ViesRestProvider implements VatProviderInterface
 {
-    protected Client $httpClient;
+    protected int $timeout;
 
-    public function __construct(?Client $httpClient = null)
+    public function __construct(?int $timeout = null)
     {
-        $timeout = config('lararoi.timeout', 15);
-        $this->httpClient = $httpClient ?? new Client([
-            'timeout' => $timeout,
-            'connect_timeout' => min(5, $timeout),
-        ]);
+        $this->timeout = $timeout ?? config('lararoi.timeout', 15);
     }
 
     public function verify(string $vatNumber, string $countryCode): array
@@ -31,8 +28,13 @@ class ViesRestProvider implements VatProviderInterface
         $url = "https://ec.europa.eu/taxation_customs/vies/rest-api/ms/{$countryCode}/vat/{$vatNumber}";
 
         try {
-            $response = $this->httpClient->get($url);
-            $data = json_decode($response->getBody()->getContents(), true);
+            $response = Http::timeout($this->timeout)
+                ->acceptJson()
+                ->get($url);
+
+            $response->throw();
+
+            $data = $response->json();
 
             if (! isset($data['isValid'])) {
                 throw new ApiUnavailableException('VIES_REST', new \Exception('Invalid response format'));
@@ -47,14 +49,22 @@ class ViesRestProvider implements VatProviderInterface
                 'country_code' => $data['countryCode'] ?? strtoupper($countryCode),
                 'api_source' => 'VIES_REST',
             ];
-        } catch (GuzzleException $e) {
-            Log::warning('VIES REST API error', [
+        } catch (RequestException $e) {
+            Log::warning('VIES REST API request error', [
                 'country' => $countryCode,
                 'vat' => $vatNumber,
                 'error' => $e->getMessage(),
             ]);
 
             throw new ApiUnavailableException('VIES_REST', new \Exception($e->getMessage(), $e->getCode(), $e));
+        } catch (ConnectionException $e) {
+            Log::warning('VIES REST API connection error', [
+                'country' => $countryCode,
+                'vat' => $vatNumber,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new ApiUnavailableException('VIES_REST', new \Exception($e->getMessage(), 0, $e));
         }
     }
 

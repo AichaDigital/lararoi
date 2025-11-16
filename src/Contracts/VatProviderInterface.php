@@ -5,7 +5,7 @@ namespace Aichadigital\Lararoi\Contracts;
 /**
  * Interface for VAT verification providers
  *
- * Each provider (VIES, AEAT, vatlayer, etc.) must implement this interface
+ * Each provider (VIES, vatlayer, viesapi, etc.) must implement this interface
  */
 interface VatProviderInterface
 {

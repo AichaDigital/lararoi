@@ -1,6 +1,8 @@
 <?php
 
+use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Providers\VatlayerProvider;
+use Illuminate\Support\Facades\Http;
 
 describe('VatlayerProvider - Properties', function () {
     it('indicates it is NOT a free provider', function () {
@@ -22,9 +24,104 @@ describe('VatlayerProvider - Properties', function () {
     });
 
     it('is available with API key configured', function () {
-        $provider = new VatlayerProvider(null, 'test_api_key');
+        $provider = new VatlayerProvider('test_api_key');
 
         expect($provider->isAvailable())->toBeTrue();
+    });
+});
+
+describe('VatlayerProvider - API Response Handling', function () {
+    it('processes valid VAT response correctly', function () {
+        $apiResponse = [
+            'valid' => true,
+            'company_name' => 'TEST COMPANY LTD',
+            'company_address' => '123 TEST STREET, CITY',
+            'vat_number' => 'ESB12345678',
+            'country_code' => 'ES',
+        ];
+
+        Http::fake([
+            'apilayer.net/*' => Http::response($apiResponse, 200),
+        ]);
+
+        $provider = new VatlayerProvider('test_key');
+        $result = $provider->verify('B12345678', 'ES');
+
+        expect($result)->toBeArray();
+        expect($result['valid'])->toBeTrue();
+        expect($result['vat_number'])->toBe('ESB12345678');
+        expect($result['country_code'])->toBe('ES');
+        expect($result['api_source'])->toBe('VATLAYER');
+        expect($result['name'])->toBe('TEST COMPANY LTD');
+        expect($result['address'])->toBe('123 TEST STREET, CITY');
+    });
+
+    it('processes invalid VAT response correctly', function () {
+        $apiResponse = [
+            'valid' => false,
+            'vat_number' => 'ESINVALID',
+            'country_code' => 'ES',
+        ];
+
+        Http::fake([
+            'apilayer.net/*' => Http::response($apiResponse, 200),
+        ]);
+
+        $provider = new VatlayerProvider('test_key');
+        $result = $provider->verify('INVALID', 'ES');
+
+        expect($result)->toBeArray();
+        expect($result['valid'])->toBeFalse();
+        expect($result['api_source'])->toBe('VATLAYER');
+    });
+
+    it('throws exception when API key not configured', function () {
+        $provider = new VatlayerProvider;
+
+        expect(fn () => $provider->verify('B12345678', 'ES'))
+            ->toThrow(ApiUnavailableException::class);
+    });
+
+    it('throws exception on connection error', function () {
+        Http::fake([
+            'apilayer.net/*' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+            },
+        ]);
+
+        $provider = new VatlayerProvider('test_key');
+
+        expect(fn () => $provider->verify('B12345678', 'ES'))
+            ->toThrow(ApiUnavailableException::class);
+    });
+
+    it('throws exception for API error response', function () {
+        $apiResponse = [
+            'error' => [
+                'code' => 101,
+                'info' => 'Invalid API key',
+            ],
+        ];
+
+        Http::fake([
+            'apilayer.net/*' => Http::response($apiResponse, 200),
+        ]);
+
+        $provider = new VatlayerProvider('invalid_key');
+
+        expect(fn () => $provider->verify('B12345678', 'ES'))
+            ->toThrow(ApiUnavailableException::class);
+    });
+
+    it('throws exception on HTTP error response', function () {
+        Http::fake([
+            'apilayer.net/*' => Http::response(['error' => 'Server error'], 500),
+        ]);
+
+        $provider = new VatlayerProvider('test_key');
+
+        expect(fn () => $provider->verify('B12345678', 'ES'))
+            ->toThrow(ApiUnavailableException::class);
     });
 });
 

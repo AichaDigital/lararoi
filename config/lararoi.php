@@ -3,15 +3,44 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Cache TTL
+    | Cache Configuration
     |--------------------------------------------------------------------------
     |
-    | Cache time to live in seconds. Verifications are cached
-    | both in memory (Laravel Cache) and in database.
-    | Default: 24 hours (86400 seconds)
+    | Configure caching behavior for VAT verifications.
     |
     */
-    'cache_ttl' => env('CACHE_TTL', 86400),
+    'cache' => [
+        /*
+        |--------------------------------------------------------------------------
+        | Enable Cache
+        |--------------------------------------------------------------------------
+        |
+        | Enable or disable caching of VAT verifications.
+        |
+        | - true: Cache verifications in memory (Laravel Cache) and database
+        | - false: Most agnostic mode - just return verification data without caching
+        |
+        | Default: true
+        |
+        */
+        'enabled' => env('CACHE_ENABLED', true),
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cache TTL (Time To Live)
+        |--------------------------------------------------------------------------
+        |
+        | Cache time to live in seconds. When cache is enabled, verifications
+        | are cached both in memory (Laravel Cache) and in database.
+        |
+        | When cache expires, the service will re-query the provider and
+        | save the new data. The response will indicate if data was refreshed.
+        |
+        | Default: 24 hours (86400 seconds)
+        |
+        */
+        'ttl' => env('CACHE_TTL', 86400),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -35,21 +64,20 @@ return [
     | until one responds correctly.
     |
     | Available FREE providers:
-    | - 'aeat': AEAT Web Service (Spain only, requires certificate) - ⭐⭐⭐⭐⭐ Most reliable
-    | - 'vies_soap': VIES SOAP API (official) - ⭐⭐⭐
-    | - 'vies_rest': VIES REST API (unofficial but simpler) - ⭐⭐
-    | - 'isvat': isvat.eu (free with 100/month limit) - ⭐⭐⭐
+    | - 'vies_soap': VIES SOAP API (official) - ⭐⭐⭐⭐ Most reliable
+    | - 'vies_rest': VIES REST API (unofficial but simpler) - ⭐⭐⭐
+    | - 'isvat': isvat.eu (free with 100/month limit) - ⭐⭐
     |
     | Available PAID providers:
     | - 'viesapi': viesapi.eu (free test plan, then paid) - ⭐⭐⭐⭐⭐
     | - 'vatlayer': vatlayer.com (100 queries/month free, then paid) - ⭐⭐⭐⭐
     |
-    | Default order: AEAT first (Spain), then official VIES, then free alternatives
+    | Default order: Official VIES first, then REST alternative, then free fallback
     |
     */
-    'providers_order' => env('PROVIDERS_ORDER', 'aeat,vies_soap,vies_rest,isvat')
-        ? array_map('trim', explode(',', env('PROVIDERS_ORDER', 'aeat,vies_soap,vies_rest,isvat')))
-        : ['aeat', 'vies_soap', 'vies_rest', 'isvat'],
+    'providers_order' => env('PROVIDERS_ORDER', 'vies_soap,vies_rest,isvat')
+        ? array_map('trim', explode(',', env('PROVIDERS_ORDER', 'vies_soap,vies_rest,isvat')))
+        : ['vies_soap', 'vies_rest', 'isvat'],
 
     /*
     |--------------------------------------------------------------------------
@@ -70,38 +98,6 @@ return [
         |
         */
         'test_mode' => env('VIES_TEST_MODE', false),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | AEAT Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for AEAT Web Service (Spain only).
-    | Requires digital certificate (individual or company representative).
-    |
-    | Option 1: PKCS#12 Certificate (.p12 or .pfx) - RECOMMENDED
-    |   - p12_path: Path to .p12 file
-    |   - passphrase: Certificate password (if any)
-    |
-    | Option 2: Separate certificate and key
-    |   - cert_path: Path to certificate (.crt or .pem)
-    |   - key_path: Path to private key (.key)
-    |   - passphrase: Private key password (if any)
-    |
-    | Available endpoints:
-    |   - Personal/Representative: https://www1.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP
-    |   - Electronic seal: https://www10.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP
-    |
-    */
-    'aeat' => [
-        // Generic environment variables for certificates (shared between packages)
-        'p12_path' => env('CERT_P12_PATH'),
-        'passphrase' => env('CERT_P12_PASSWORD'),
-
-        // Endpoint (default: personal/representative)
-        'endpoint' => env('AEAT_ENDPOINT',
-            'https://www1.agenciatributaria.gob.es/wlpl/BURT-JDIT/ws/VNifV2SOAP'),
     ],
 
     /*
@@ -136,11 +132,35 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configuration for the VAT verification model.
-    | Allows customizing the model if it needs to be extended.
+    | Allows full customization for integration with your application.
+    |
+    | You can:
+    | - Use the default model or specify your own custom model class
+    | - Customize the primary key field name (e.g., 'id', 'uuid', 'ulid')
+    | - Customize the foreign key name for relationships (e.g., 'vat_verification_id', 'custom_vat_id')
+    |
+    | Example for custom model with UUID:
+    | 'models' => [
+    |     'vat_verification' => [
+    |         'class' => \App\Models\CustomVatVerification::class,
+    |         'primary_key' => 'uuid',
+    |         'foreign_key' => 'custom_vat_uuid',
+    |     ],
+    | ],
     |
     */
     'models' => [
-        'vat_verification' => \Aichadigital\Lararoi\Models\VatVerification::class,
+        'vat_verification' => [
+            // Model class to use (must implement VatVerificationModelInterface)
+            'class' => env('VAT_VERIFICATION_MODEL', \Aichadigital\Lararoi\Models\VatVerification::class),
+
+            // Primary key column name (for the vat_verifications table)
+            'primary_key' => env('VAT_VERIFICATION_PRIMARY_KEY', 'id'),
+
+            // Foreign key name for relationships (e.g., in customers table)
+            // Format: {table}_{column} following Laravel conventions
+            'foreign_key' => env('VAT_VERIFICATION_FOREIGN_KEY', 'vat_verification_id'),
+        ],
     ],
 
     /*

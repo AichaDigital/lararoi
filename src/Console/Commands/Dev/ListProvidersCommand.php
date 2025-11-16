@@ -65,7 +65,7 @@ class ListProvidersCommand extends Command
         $this->info('⚙️  NOT CONFIGURED Providers:');
         $this->line('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-        $allPossibleProviders = ['vies_rest', 'vies_soap', 'isvat', 'vatlayer', 'viesapi', 'aeat'];
+        $allPossibleProviders = ['vies_rest', 'vies_soap', 'isvat', 'vatlayer', 'viesapi'];
         $registeredProviders = $providers->keys()->toArray();
         $notRegistered = array_diff($allPossibleProviders, $registeredProviders);
 
@@ -79,8 +79,6 @@ class ListProvidersCommand extends Command
                 } elseif ($name === 'viesapi') {
                     $this->line('    💡 Requires: VIESAPI_KEY in .env');
                     $this->line('    💡 Optional: VIESAPI_SECRET and VIESAPI_IP');
-                } elseif ($name === 'aeat') {
-                    $this->line('    💡 Requires: Certificate (CERT_P12_PATH and CERT_P12_PASSWORD)');
                 }
                 $this->newLine();
             }
@@ -116,8 +114,6 @@ class ListProvidersCommand extends Command
 
         if (! $provider->isAvailable() && ! $provider->isFree()) {
             $this->line('    💡 Requires: API key configured');
-        } elseif (! $provider->isAvailable() && $name === 'aeat') {
-            $this->line('    💡 Requires: Digital certificate configured');
         }
 
         $this->newLine();

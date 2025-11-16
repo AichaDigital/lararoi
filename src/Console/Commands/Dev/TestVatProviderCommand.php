@@ -18,7 +18,7 @@ class TestVatProviderCommand extends Command
     protected $signature = 'lararoi:dev:test-provider
                             {vat : VAT number without country prefix}
                             {country : Country code (2 letters, e.g.: ES, DE, MT)}
-                            {provider? : Provider name (vies_rest, vies_soap, isvat, vatlayer, viesapi, aeat)}
+                            {provider? : Provider name (vies_rest, vies_soap, isvat, vatlayer, viesapi)}
                             {--json : Show response in JSON format}
                             {--all : Test all available providers}';
 

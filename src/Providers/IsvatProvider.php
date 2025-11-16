@@ -4,8 +4,9 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -13,18 +14,14 @@ use Illuminate\Support\Facades\Log;
  */
 class IsvatProvider implements VatProviderInterface
 {
-    protected Client $httpClient;
-
     protected bool $useLive;
 
-    public function __construct(?Client $httpClient = null, bool $useLive = false)
+    protected int $timeout;
+
+    public function __construct(bool $useLive = false, ?int $timeout = null)
     {
-        $timeout = config('lararoi.timeout', 15);
-        $this->httpClient = $httpClient ?? new Client([
-            'timeout' => $timeout,
-            'connect_timeout' => min(5, $timeout),
-        ]);
         $this->useLive = $useLive;
+        $this->timeout = $timeout ?? config('lararoi.timeout', 15);
     }
 
     public function verify(string $vatNumber, string $countryCode): array
@@ -33,27 +30,89 @@ class IsvatProvider implements VatProviderInterface
         $url = "https://www.isvat.eu/{$endpoint}/{$countryCode}/{$vatNumber}";
 
         try {
-            $response = $this->httpClient->get($url);
-            $data = json_decode($response->getBody()->getContents(), true);
+            $response = Http::timeout($this->timeout)
+                ->acceptJson()
+                ->get($url);
 
-            return [
-                'valid' => $data['valid'] ?? false,
-                'name' => $data['name'] ?? null,
-                'address' => $data['address'] ?? null,
-                'request_date' => null,
-                'vat_number' => $data['vatNumber'] ?? $vatNumber,
-                'country_code' => $data['countryCode'] ?? strtoupper($countryCode),
-                'api_source' => 'ISVAT',
-            ];
-        } catch (GuzzleException $e) {
-            Log::warning('ISVAT API error', [
+            // ISVAT returns 404 with {"valid":false} for invalid VAT numbers
+            // This is a valid response, not an error
+            if ($response->status() === 404) {
+                $data = $response->json();
+
+                if (is_array($data) && isset($data['valid'])) {
+                    return $this->buildResponse($data, $vatNumber, $countryCode);
+                }
+
+                // 404 without valid JSON structure - this is an error
+                Log::warning('ISVAT API 404 error without valid structure', [
+                    'country' => $countryCode,
+                    'vat' => $vatNumber,
+                    'body' => $response->body(),
+                ]);
+
+                throw new ApiUnavailableException('ISVAT', new \Exception('404 Not Found without valid response structure', 404));
+            }
+
+            // Throw exception for server errors (5xx)
+            $response->throw();
+
+            $data = $response->json();
+
+            return $this->buildResponse($data, $vatNumber, $countryCode);
+        } catch (RequestException $e) {
+            Log::warning('ISVAT API request error', [
+                'country' => $countryCode,
+                'vat' => $vatNumber,
+                'error' => $e->getMessage(),
+                'status' => $e->response->status(),
+            ]);
+
+            throw new ApiUnavailableException('ISVAT', new \Exception($e->getMessage(), $e->getCode(), $e));
+        } catch (ConnectionException $e) {
+            Log::warning('ISVAT API connection error', [
                 'country' => $countryCode,
                 'vat' => $vatNumber,
                 'error' => $e->getMessage(),
             ]);
 
-            throw new ApiUnavailableException('ISVAT', new \Exception($e->getMessage(), $e->getCode(), $e));
+            throw new ApiUnavailableException('ISVAT', new \Exception($e->getMessage(), 0, $e));
         }
+    }
+
+    /**
+     * Build standardized response array from ISVAT API data
+     */
+    protected function buildResponse(array $data, string $vatNumber, string $countryCode): array
+    {
+        return [
+            'valid' => $data['valid'] ?? false,
+            'name' => $this->normalizeValue($data['name'] ?? null),
+            'address' => $this->normalizeValue($data['address'] ?? null),
+            'request_date' => null,
+            'vat_number' => $data['vatNumber'] ?? $vatNumber,
+            'country_code' => $data['countryCode'] ?? strtoupper($countryCode),
+            'api_source' => 'ISVAT',
+        ];
+    }
+
+    /**
+     * Normalize ISVAT API response values
+     *
+     * ISVAT API returns name and address as arrays with numeric keys (e.g., {"0": "value"})
+     * This method extracts the first value from such arrays or returns the value as-is
+     */
+    protected function normalizeValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            // ISVAT returns {"0": "actual value"} format
+            return $value[0] ?? $value['0'] ?? null;
+        }
+
+        return (string) $value;
     }
 
     public function getName(): string

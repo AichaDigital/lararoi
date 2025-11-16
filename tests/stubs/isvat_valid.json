@@ -1,7 +1,16 @@
 {
-    "error": true,
-    "error_type": "Aichadigital\\Lararoi\\Exceptions\\ApiUnavailableException",
-    "error_message": "API 'ISVAT' is currently unavailable",
-    "vat_number": "B99999999",
-    "country_code": "ES"
+  "valid": true,
+  "cache": {
+    "0": "2025-11-15T18:18:08CET"
+  },
+  "name": {
+    "0": "ADOBE SYSTEMS SOFTWARE IRELAND LTD"
+  },
+  "address": {
+    "0": "4 - 6 RIVER WALK, CITYWEST BUSINESS CAMPUS, SAGGART, DUBLIN 24"
+  },
+  "vatNumber": "6364992H",
+  "countryCode": "IE",
+  "rate_limit": 83,
+  "rate_info": "Max. 100 request per month"
 }

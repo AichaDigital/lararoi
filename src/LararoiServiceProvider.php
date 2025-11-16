@@ -5,7 +5,6 @@ namespace Aichadigital\Lararoi;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Models\VatVerification;
-use Aichadigital\Lararoi\Providers\AeatProvider;
 use Aichadigital\Lararoi\Providers\IsvatProvider;
 use Aichadigital\Lararoi\Providers\VatlayerProvider;
 use Aichadigital\Lararoi\Providers\ViesApiProvider;
@@ -30,6 +29,7 @@ class LararoiServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasMigration('create_vat_verifications_table')
             ->hasCommands([
+                \Aichadigital\Lararoi\Console\Commands\VerifyVatCommand::class,
                 \Aichadigital\Lararoi\Console\Commands\Dev\TestVatProviderCommand::class,
                 \Aichadigital\Lararoi\Console\Commands\Dev\TestVatFromFileCommand::class,
                 \Aichadigital\Lararoi\Console\Commands\Dev\ListProvidersCommand::class,
@@ -49,34 +49,17 @@ class LararoiServiceProvider extends PackageServiceProvider
             // Register FREE providers
             $manager->register('vies_rest', new ViesRestProvider);
             $manager->register('vies_soap', new ViesSoapProvider($config['vies']['test_mode'] ?? false));
-            $manager->register('isvat', new IsvatProvider(null, $config['provider_config']['isvat']['use_live'] ?? false));
-
-            // Register AEAT if configured
-            $aeatConfig = $config['aeat'] ?? [];
-            $hasP12 = ! empty($aeatConfig['p12_path']) && file_exists($aeatConfig['p12_path']);
-            $hasCertKey = ! empty($aeatConfig['cert_path']) && ! empty($aeatConfig['key_path'])
-                && file_exists($aeatConfig['cert_path']) && file_exists($aeatConfig['key_path']);
-
-            if ($hasP12 || $hasCertKey) {
-                $manager->register('aeat', new AeatProvider(
-                    $aeatConfig['cert_path'] ?? null,
-                    $aeatConfig['key_path'] ?? null,
-                    $aeatConfig['p12_path'] ?? null,
-                    $aeatConfig['endpoint'] ?? null,
-                    $aeatConfig['passphrase'] ?? null
-                ));
-            }
+            $manager->register('isvat', new IsvatProvider($config['provider_config']['isvat']['use_live'] ?? false));
 
             // Register PAID providers if configured
             $vatlayerConfig = $config['provider_config']['vatlayer'] ?? [];
-            if (! empty($vatlayerConfig['api_key'])) {
-                $manager->register('vatlayer', new VatlayerProvider(null, $vatlayerConfig['api_key']));
+            if (isset($vatlayerConfig['api_key']) && $vatlayerConfig['api_key'] !== '') {
+                $manager->register('vatlayer', new VatlayerProvider($vatlayerConfig['api_key']));
             }
 
             $viesapiConfig = $config['provider_config']['viesapi'] ?? [];
-            if (! empty($viesapiConfig['api_key'])) {
+            if (isset($viesapiConfig['api_key']) && $viesapiConfig['api_key'] !== '') {
                 $manager->register('viesapi', new ViesApiProvider(
-                    null,
                     $viesapiConfig['api_key'],
                     $viesapiConfig['api_secret'] ?? null,
                     $viesapiConfig['ip'] ?? null
