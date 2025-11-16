@@ -9,7 +9,7 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
 
 > **⚠️ BETA VERSION - Active Development**
-> This package is currently in beta (v0.1.x). The API and configuration may change significantly in future versions. Use in production at your own risk. We recommend pinning to a specific version in your `composer.json`.
+> This package is currently in beta (v0.2.x). The API and configuration may change significantly in future versions. Use in production at your own risk. We recommend pinning to a specific version in your `composer.json`.
 
 Agnostic package for intra-community NIF-VAT/VAT verification in Laravel.
 
