@@ -19,13 +19,16 @@ return new class extends Migration
             $table->string('company_name')->nullable();
             $table->text('company_address')->nullable();
             $table->string('api_source', 50)->default('UNKNOWN');
-            $table->timestamp('verified_at')->nullable();
             $table->json('response_data')->nullable();
+            $table->timestamp('checked_at')->nullable();
+            $table->timestamp('verified_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
             // Índices compuestos para búsquedas rápidas
             $table->index(['vat_code', 'country_code']);
+            $table->index(['vat_code', 'is_valid']);
             $table->index(['is_valid', 'verified_at']);
         });
     }
