@@ -2,6 +2,8 @@
 
 namespace Aichadigital\Lararoi\Contracts;
 
+use Illuminate\Support\Carbon;
+
 /**
  * Interface for VAT verification model
  *
@@ -15,7 +17,7 @@ namespace Aichadigital\Lararoi\Contracts;
  * @property string|null $company_name
  * @property string|null $company_address
  * @property string $api_source
- * @property \Illuminate\Support\Carbon|null $verified_at
+ * @property Carbon|null $verified_at
  * @property array|null $response_data
  */
 interface VatVerificationModelInterface
@@ -66,7 +68,7 @@ interface VatVerificationModelInterface
     /**
      * Get the verification timestamp
      */
-    public function getVerifiedAt(): ?\Illuminate\Support\Carbon;
+    public function getVerifiedAt(): ?Carbon;
 
     /**
      * Get the raw response data

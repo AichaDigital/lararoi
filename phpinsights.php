@@ -1,6 +1,16 @@
 <?php
 
 declare(strict_types=1);
+use NunoMaduro\PhpInsights\Domain\Insights\CyclomaticComplexityIsHigh;
+use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenDefineFunctions;
+use NunoMaduro\PhpInsights\Domain\Insights\ForbiddenNormalClasses;
+use PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff;
+use PhpCsFixer\Fixer\ClassNotation\OrderedClassElementsFixer;
+use PhpCsFixer\Fixer\Import\OrderedImportsFixer;
+use SlevomatCodingStandard\Sniffs\Classes\ForbiddenPublicPropertySniff;
+use SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff;
+use SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff;
+use SlevomatCodingStandard\Sniffs\TypeHints\DeclareStrictTypesSniff;
 
 return [
 
@@ -69,20 +79,20 @@ return [
 
     'remove' => [
         // Remove specific insights that are not relevant for packages
-        NunoMaduro\PhpInsights\Domain\Insights\ForbiddenDefineFunctions::class,
-        NunoMaduro\PhpInsights\Domain\Insights\ForbiddenNormalClasses::class,
-        SlevomatCodingStandard\Sniffs\TypeHints\DeclareStrictTypesSniff::class,
-        SlevomatCodingStandard\Sniffs\Classes\ForbiddenPublicPropertySniff::class,
-        PHP_CodeSniffer\Standards\Generic\Sniffs\Files\LineLengthSniff::class,
-        SlevomatCodingStandard\Sniffs\Functions\FunctionLengthSniff::class,
-        NunoMaduro\PhpInsights\Domain\Insights\CyclomaticComplexityIsHigh::class,
-        SlevomatCodingStandard\Sniffs\Commenting\DocCommentSpacingSniff::class,
-        PhpCsFixer\Fixer\ClassNotation\OrderedClassElementsFixer::class,
+        ForbiddenDefineFunctions::class,
+        ForbiddenNormalClasses::class,
+        DeclareStrictTypesSniff::class,
+        ForbiddenPublicPropertySniff::class,
+        LineLengthSniff::class,
+        FunctionLengthSniff::class,
+        CyclomaticComplexityIsHigh::class,
+        DocCommentSpacingSniff::class,
+        OrderedClassElementsFixer::class,
     ],
 
     'config' => [
         // Adjust specific insights configuration
-        PhpCsFixer\Fixer\Import\OrderedImportsFixer::class => [
+        OrderedImportsFixer::class => [
             'imports_order' => ['class', 'function', 'const'],
             'sort_algorithm' => 'alpha',
         ],

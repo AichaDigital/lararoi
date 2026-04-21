@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Aichadigital\Lararoi\Console\Commands;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
+use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Providers\ViesSoapProvider;
 use Aichadigital\Lararoi\Services\VatProviderManager;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Laravel\Prompts\Prompt;
 
 /**
  * Interactive command to verify VAT numbers with detailed analysis
@@ -70,7 +74,7 @@ class VerifyVatCommand extends Command
             $result = $provider->verify($vatNumber, $countryCode);
 
             $this->displayResult($result, $companyName);
-        } catch (\Aichadigital\Lararoi\Exceptions\ApiUnavailableException $e) {
+        } catch (ApiUnavailableException $e) {
             $this->error('❌ Error during verification:');
 
             // Show more detailed error message if available
@@ -140,7 +144,7 @@ class VerifyVatCommand extends Command
         }
 
         // Use Laravel Prompts if available, otherwise fallback to traditional method
-        if (class_exists(\Laravel\Prompts\Prompt::class)) {
+        if (class_exists(Prompt::class)) {
             $options = $availableProviders->map(fn ($p, $name) => "{$p['name']} ({$p['type']})")->values()->all();
             $selected = \Laravel\Prompts\select(
                 label: 'Select a provider:',
@@ -193,7 +197,7 @@ class VerifyVatCommand extends Command
         }
 
         // Interactive mode
-        if (class_exists(\Laravel\Prompts\Prompt::class)) {
+        if (class_exists(Prompt::class)) {
             $vatInput = \Laravel\Prompts\text(
                 label: 'Enter VAT number:',
                 placeholder: 'B12345678 or ESB12345678',
@@ -252,7 +256,7 @@ class VerifyVatCommand extends Command
         }
 
         // Interactive mode - only if --name not provided at all
-        if (class_exists(\Laravel\Prompts\Prompt::class)) {
+        if (class_exists(Prompt::class)) {
             $nameInput = \Laravel\Prompts\text(
                 label: 'Enter company name (optional, for validation):',
                 placeholder: 'Leave empty to skip',
@@ -284,7 +288,7 @@ class VerifyVatCommand extends Command
     /**
      * Get list of available providers for selection
      */
-    protected function getAvailableProvidersList(): \Illuminate\Support\Collection
+    protected function getAvailableProvidersList(): Collection
     {
         $providers = $this->providerManager->getProviders();
         $available = collect();
@@ -435,7 +439,7 @@ class VerifyVatCommand extends Command
         $this->newLine();
 
         // For SOAP providers, try to get XML trace
-        if ($provider instanceof \Aichadigital\Lararoi\Providers\ViesSoapProvider) {
+        if ($provider instanceof ViesSoapProvider) {
             $this->displaySoapError($e);
         } else {
             // For REST providers, show JSON if available

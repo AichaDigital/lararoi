@@ -2,6 +2,8 @@
 
 namespace Aichadigital\Lararoi\Contracts;
 
+use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+
 /**
  * Interface for VAT verification providers
  *
@@ -24,7 +26,7 @@ interface VatProviderInterface
      *     api_source: string
      * }
      *
-     * @throws \Aichadigital\Lararoi\Exceptions\ApiUnavailableException
+     * @throws ApiUnavailableException
      */
     public function verify(string $vatNumber, string $countryCode): array;
 

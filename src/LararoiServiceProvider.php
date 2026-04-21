@@ -2,6 +2,11 @@
 
 namespace Aichadigital\Lararoi;
 
+use Aichadigital\Lararoi\Console\Commands\Dev\GenerateStubsCommand;
+use Aichadigital\Lararoi\Console\Commands\Dev\ListProvidersCommand;
+use Aichadigital\Lararoi\Console\Commands\Dev\TestVatFromFileCommand;
+use Aichadigital\Lararoi\Console\Commands\Dev\TestVatProviderCommand;
+use Aichadigital\Lararoi\Console\Commands\VerifyVatCommand;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Models\VatVerification;
@@ -29,11 +34,11 @@ class LararoiServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasMigration('create_vat_verifications_table')
             ->hasCommands([
-                \Aichadigital\Lararoi\Console\Commands\VerifyVatCommand::class,
-                \Aichadigital\Lararoi\Console\Commands\Dev\TestVatProviderCommand::class,
-                \Aichadigital\Lararoi\Console\Commands\Dev\TestVatFromFileCommand::class,
-                \Aichadigital\Lararoi\Console\Commands\Dev\ListProvidersCommand::class,
-                \Aichadigital\Lararoi\Console\Commands\Dev\GenerateStubsCommand::class,
+                VerifyVatCommand::class,
+                TestVatProviderCommand::class,
+                TestVatFromFileCommand::class,
+                ListProvidersCommand::class,
+                GenerateStubsCommand::class,
             ]);
     }
 

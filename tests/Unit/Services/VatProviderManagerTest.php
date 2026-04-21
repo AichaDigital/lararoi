@@ -41,7 +41,7 @@ describe('VatProviderManager - Fallback Order', function () {
         $provider->shouldReceive('verify')
             ->with('99999999', 'ES')
             ->once()
-            ->andThrow(new ApiUnavailableException('MOCK_PROVIDER', new \Exception('Test error')));
+            ->andThrow(new ApiUnavailableException('MOCK_PROVIDER', new Exception('Test error')));
 
         $order = ['mock_provider'];
         $manager = new VatProviderManager($order);

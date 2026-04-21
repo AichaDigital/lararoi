@@ -2,6 +2,7 @@
 
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Services\VatProviderManager;
+use Aichadigital\Lararoi\Services\VatVerificationService;
 
 test('service provider is correctly registered', function () {
     expect(app()->bound(VatVerificationServiceInterface::class))->toBeTrue();
@@ -11,7 +12,7 @@ test('service provider is correctly registered', function () {
 test('can resolve VAT verification service', function () {
     $service = app(VatVerificationServiceInterface::class);
 
-    expect($service)->toBeInstanceOf(\Aichadigital\Lararoi\Services\VatVerificationService::class);
+    expect($service)->toBeInstanceOf(VatVerificationService::class);
 });
 
 test('can resolve VAT provider manager', function () {
@@ -22,5 +23,5 @@ test('can resolve VAT provider manager', function () {
 });
 
 test('vat verification table exists', function () {
-    expect(\Schema::hasTable('vat_verifications'))->toBeTrue();
+    expect(Schema::hasTable('vat_verifications'))->toBeTrue();
 });

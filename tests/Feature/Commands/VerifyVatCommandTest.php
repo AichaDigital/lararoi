@@ -1,5 +1,8 @@
 <?php
 
+use Aichadigital\Lararoi\Console\Commands\VerifyVatCommand;
+use Aichadigital\Lararoi\Services\VatProviderManager;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 describe('VerifyVatCommand - Basic Execution', function () {
@@ -46,7 +49,7 @@ describe('VerifyVatCommand - Basic Execution', function () {
     it('handles API errors gracefully', function () {
         Http::fake([
             'ec.europa.eu/*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection failed');
+                throw new ConnectionException('Connection failed');
             },
         ]);
 
@@ -157,11 +160,11 @@ describe('VerifyVatCommand - Provider Selection', function () {
 
 describe('VerifyVatCommand - Helper Methods', function () {
     it('normalizes VAT numbers correctly', function () {
-        $command = new \Aichadigital\Lararoi\Console\Commands\VerifyVatCommand(
-            app(\Aichadigital\Lararoi\Services\VatProviderManager::class)
+        $command = new VerifyVatCommand(
+            app(VatProviderManager::class)
         );
 
-        $reflection = new \ReflectionClass($command);
+        $reflection = new ReflectionClass($command);
         $method = $reflection->getMethod('normalizeVatNumber');
         $method->setAccessible(true);
 
@@ -179,11 +182,11 @@ describe('VerifyVatCommand - Helper Methods', function () {
     });
 
     it('normalizes company names correctly', function () {
-        $command = new \Aichadigital\Lararoi\Console\Commands\VerifyVatCommand(
-            app(\Aichadigital\Lararoi\Services\VatProviderManager::class)
+        $command = new VerifyVatCommand(
+            app(VatProviderManager::class)
         );
 
-        $reflection = new \ReflectionClass($command);
+        $reflection = new ReflectionClass($command);
         $method = $reflection->getMethod('normalizeCompanyName');
         $method->setAccessible(true);
 
@@ -201,11 +204,11 @@ describe('VerifyVatCommand - Helper Methods', function () {
     });
 
     it('calculates string similarity correctly', function () {
-        $command = new \Aichadigital\Lararoi\Console\Commands\VerifyVatCommand(
-            app(\Aichadigital\Lararoi\Services\VatProviderManager::class)
+        $command = new VerifyVatCommand(
+            app(VatProviderManager::class)
         );
 
-        $reflection = new \ReflectionClass($command);
+        $reflection = new ReflectionClass($command);
         $method = $reflection->getMethod('calculateSimilarity');
         $method->setAccessible(true);
 

@@ -5,6 +5,7 @@ use Aichadigital\Lararoi\Providers\IsvatProvider;
 use Aichadigital\Lararoi\Providers\VatlayerProvider;
 use Aichadigital\Lararoi\Providers\ViesApiProvider;
 use Aichadigital\Lararoi\Providers\ViesRestProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 describe('ViesRestProvider - Verify Method', function () {
@@ -46,7 +47,7 @@ describe('ViesRestProvider - Verify Method', function () {
     it('throws exception when API is unavailable', function () {
         Http::fake([
             'ec.europa.eu/*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection failed');
+                throw new ConnectionException('Connection failed');
             },
         ]);
 
@@ -122,7 +123,7 @@ describe('IsvatProvider - Verify Method', function () {
     it('throws exception on API error', function () {
         Http::fake([
             'www.isvat.eu/*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+                throw new ConnectionException('Connection timeout');
             },
         ]);
 
