@@ -2,6 +2,7 @@
 
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Providers\IsvatProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 describe('IsvatProvider - Properties', function () {
@@ -84,7 +85,7 @@ describe('IsvatProvider - API Response Handling', function () {
     it('throws ApiUnavailableException on connection error', function () {
         Http::fake([
             'www.isvat.eu/*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+                throw new ConnectionException('Connection timeout');
             },
         ]);
 

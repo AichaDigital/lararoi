@@ -5,7 +5,7 @@ use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 
 describe('ApiUnavailableException', function () {
     it('can be created with provider name and previous exception', function () {
-        $previous = new \Exception('Original error');
+        $previous = new Exception('Original error');
         $exception = new ApiUnavailableException('VIES_REST', $previous);
 
         expect($exception)->toBeInstanceOf(ApiUnavailableException::class);
@@ -59,7 +59,7 @@ describe('VatVerificationException', function () {
     });
 
     it('can be created with previous exception', function () {
-        $previous = new \Exception('Previous error');
+        $previous = new Exception('Previous error');
         $exception = new VatVerificationException('Error occurred', 'ERROR', null, 0, $previous);
 
         expect($exception->getPrevious())->toBe($previous);

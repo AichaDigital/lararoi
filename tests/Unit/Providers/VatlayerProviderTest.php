@@ -2,6 +2,7 @@
 
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Providers\VatlayerProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 describe('VatlayerProvider - Properties', function () {
@@ -85,7 +86,7 @@ describe('VatlayerProvider - API Response Handling', function () {
     it('throws exception on connection error', function () {
         Http::fake([
             'apilayer.net/*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+                throw new ConnectionException('Connection timeout');
             },
         ]);
 

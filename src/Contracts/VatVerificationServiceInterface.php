@@ -2,6 +2,8 @@
 
 namespace Aichadigital\Lararoi\Contracts;
 
+use Aichadigital\Lararoi\Exceptions\VatVerificationException;
+
 /**
  * Interface for VAT/NIF-IVA verification service
  *
@@ -27,7 +29,7 @@ interface VatVerificationServiceInterface
      *     response_data?: array
      * }
      *
-     * @throws \Aichadigital\Lararoi\Exceptions\VatVerificationException
+     * @throws VatVerificationException
      */
     public function verifyVatNumber(string $vatNumber, string $countryCode): array;
 }

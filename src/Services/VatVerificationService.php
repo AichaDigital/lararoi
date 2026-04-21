@@ -5,6 +5,7 @@ namespace Aichadigital\Lararoi\Services;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Models\VatVerification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -30,11 +31,11 @@ class VatVerificationService implements VatVerificationServiceInterface
         $this->config = function_exists('config') ? config('lararoi', []) : [];
 
         // Set model from config with backward compatibility
-        $modelConfig = $this->config['models']['vat_verification'] ?? \Aichadigital\Lararoi\Models\VatVerification::class;
+        $modelConfig = $this->config['models']['vat_verification'] ?? VatVerification::class;
 
         // Support both old format (string) and new format (array with 'class' key)
         $modelClass = is_array($modelConfig)
-            ? ($modelConfig['class'] ?? \Aichadigital\Lararoi\Models\VatVerification::class)
+            ? ($modelConfig['class'] ?? VatVerification::class)
             : $modelConfig;
 
         if (class_exists($modelClass)) {
@@ -154,13 +155,13 @@ class VatVerificationService implements VatVerificationServiceInterface
             $verification = $this->model::findByVatCodeAndCountry($vatCode, $countryCode);
 
             if (! $verification) {
-                /** @var \Aichadigital\Lararoi\Models\VatVerification $verification */
+                /** @var VatVerification $verification */
                 $verification = new ($this->model::class)();
                 $verification->vat_code = $vatCode;
                 $verification->country_code = $countryCode;
             }
 
-            /** @var \Aichadigital\Lararoi\Models\VatVerification $verification */
+            /** @var VatVerification $verification */
             $verification->is_valid = $result['valid'] ?? false;
             $verification->company_name = $result['name'] ?? null;
             $verification->company_address = $result['address'] ?? null;

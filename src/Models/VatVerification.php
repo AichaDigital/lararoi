@@ -3,8 +3,10 @@
 namespace Aichadigital\Lararoi\Models;
 
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * Model for storing VAT/NIF-IVA verifications
@@ -111,7 +113,7 @@ class VatVerification extends Model implements VatVerificationModelInterface
     /**
      * {@inheritDoc}
      */
-    public function getVerifiedAt(): ?\Illuminate\Support\Carbon
+    public function getVerifiedAt(): ?Carbon
     {
         return $this->verified_at;
     }
@@ -127,8 +129,8 @@ class VatVerification extends Model implements VatVerificationModelInterface
     /**
      * Scope to search by VAT code
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeByVatCode($query, string $vatCode)
     {
@@ -138,8 +140,8 @@ class VatVerification extends Model implements VatVerificationModelInterface
     /**
      * Scope to search by country
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeByCountry($query, string $countryCode)
     {
@@ -149,8 +151,8 @@ class VatVerification extends Model implements VatVerificationModelInterface
     /**
      * Scope for valid verifications
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeValid($query)
     {
@@ -160,8 +162,8 @@ class VatVerification extends Model implements VatVerificationModelInterface
     /**
      * Scope for expired verifications
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeExpired($query)
     {

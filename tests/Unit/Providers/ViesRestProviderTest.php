@@ -2,6 +2,7 @@
 
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Providers\ViesRestProvider;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 describe('ViesRestProvider - Properties', function () {
@@ -74,7 +75,7 @@ describe('ViesRestProvider - API Response Handling', function () {
     it('throws exception on connection error', function () {
         Http::fake([
             'ec.europa.eu/*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+                throw new ConnectionException('Connection timeout');
             },
         ]);
 

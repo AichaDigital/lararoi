@@ -1,5 +1,7 @@
 <?php
 
+use Aichadigital\Lararoi\Models\VatVerification;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -152,7 +154,7 @@ return [
     'models' => [
         'vat_verification' => [
             // Model class to use (must implement VatVerificationModelInterface)
-            'class' => env('VAT_VERIFICATION_MODEL', \Aichadigital\Lararoi\Models\VatVerification::class),
+            'class' => env('VAT_VERIFICATION_MODEL', VatVerification::class),
 
             // Primary key column name (for the vat_verifications table)
             'primary_key' => env('VAT_VERIFICATION_PRIMARY_KEY', 'id'),

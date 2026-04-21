@@ -1,7 +1,9 @@
 <?php
 
+use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Models\VatVerification;
+use Aichadigital\Lararoi\Services\VatProviderManager;
 
 describe('VatVerification - Complete Integration', function () {
     it('verifies VAT and saves to database', function () {
@@ -9,7 +11,7 @@ describe('VatVerification - Complete Integration', function () {
         $stubData = json_decode(file_get_contents(__DIR__.'/../stubs/vies_rest_valid.json'), true);
 
         // Create a mock provider that returns stub data
-        $mockProvider = Mockery::mock(\Aichadigital\Lararoi\Contracts\VatProviderInterface::class);
+        $mockProvider = Mockery::mock(VatProviderInterface::class);
         $mockProvider->shouldReceive('isAvailable')->andReturn(true);
         $mockProvider->shouldReceive('getName')->andReturn('MOCK_PROVIDER');
         $mockProvider->shouldReceive('isFree')->andReturn(true);
@@ -25,7 +27,7 @@ describe('VatVerification - Complete Integration', function () {
             ]);
 
         // Replace provider manager with our mock
-        $manager = app(\Aichadigital\Lararoi\Services\VatProviderManager::class);
+        $manager = app(VatProviderManager::class);
         $manager->register('mock', $mockProvider);
         $manager->setProviderOrder(['mock']);
 
@@ -46,7 +48,7 @@ describe('VatVerification - Complete Integration', function () {
 
     it('uses database cache for repeated verifications', function () {
         // Create a mock that will only be called once
-        $mockProvider = Mockery::mock(\Aichadigital\Lararoi\Contracts\VatProviderInterface::class);
+        $mockProvider = Mockery::mock(VatProviderInterface::class);
         $mockProvider->shouldReceive('isAvailable')->andReturn(true);
         $mockProvider->shouldReceive('getName')->andReturn('MOCK_PROVIDER');
         $mockProvider->shouldReceive('isFree')->andReturn(true);
@@ -62,7 +64,7 @@ describe('VatVerification - Complete Integration', function () {
                 'api_source' => 'MOCK_PROVIDER',
             ]);
 
-        $manager = app(\Aichadigital\Lararoi\Services\VatProviderManager::class);
+        $manager = app(VatProviderManager::class);
         $manager->register('mock', $mockProvider);
         $manager->setProviderOrder(['mock']);
 
@@ -79,7 +81,7 @@ describe('VatVerification - Complete Integration', function () {
     });
 
     it('stores verification metadata correctly', function () {
-        $mockProvider = Mockery::mock(\Aichadigital\Lararoi\Contracts\VatProviderInterface::class);
+        $mockProvider = Mockery::mock(VatProviderInterface::class);
         $mockProvider->shouldReceive('isAvailable')->andReturn(true);
         $mockProvider->shouldReceive('getName')->andReturn('MOCK_PROVIDER');
         $mockProvider->shouldReceive('isFree')->andReturn(true);
@@ -94,7 +96,7 @@ describe('VatVerification - Complete Integration', function () {
                 'api_source' => 'MOCK_PROVIDER',
             ]);
 
-        $manager = app(\Aichadigital\Lararoi\Services\VatProviderManager::class);
+        $manager = app(VatProviderManager::class);
         $manager->register('mock', $mockProvider);
         $manager->setProviderOrder(['mock']);
 

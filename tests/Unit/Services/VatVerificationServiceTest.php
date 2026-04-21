@@ -1,6 +1,8 @@
 <?php
 
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
+use Aichadigital\Lararoi\Models\VatVerification;
+use Illuminate\Support\Facades\Cache;
 
 describe('VatVerificationService - Basic Verification', function () {
     it('resolves service from container', function () {
@@ -21,9 +23,9 @@ describe('VatVerificationService - Basic Verification', function () {
             expect($result)->toHaveKey('country_code');
             expect($result)->toHaveKey('api_source');
             expect($result)->toHaveKey('cached');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable - that's acceptable
-            expect($e)->toBeInstanceOf(\Exception::class);
+            expect($e)->toBeInstanceOf(Exception::class);
         }
     });
 
@@ -35,7 +37,7 @@ describe('VatVerificationService - Basic Verification', function () {
 
             expect($result['vat_code'])->toBe('ESB12345678');
             expect($result['country_code'])->toBe('ES');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -51,7 +53,7 @@ describe('VatVerificationService - Company Data', function () {
 
             expect($result)->toHaveKey('company_name');
             expect($result)->toHaveKey('company_address');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -70,7 +72,7 @@ describe('VatVerificationService - Caching', function () {
             $result2 = $service->verifyVatNumber('99999999', 'ES');
 
             expect($result2['cached'])->toBeTrue();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -82,10 +84,10 @@ describe('VatVerificationService - Caching', function () {
         try {
             $result = $service->verifyVatNumber('B12345678', 'ES');
 
-            $verification = \Aichadigital\Lararoi\Models\VatVerification::findByVatCodeAndCountry('ESB12345678', 'ES');
+            $verification = VatVerification::findByVatCodeAndCountry('ESB12345678', 'ES');
 
             expect($verification)->not->toBeNull();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -99,7 +101,7 @@ describe('VatVerificationService - Caching', function () {
 
             expect($result)->toHaveKey('cache_status');
             expect($result['cache_status'])->toBeIn(['fresh', 'cached', 'refreshed']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -109,15 +111,15 @@ describe('VatVerificationService - Caching', function () {
         $service = app(VatVerificationServiceInterface::class);
 
         // Clear any existing cache
-        \Illuminate\Support\Facades\Cache::flush();
-        \Aichadigital\Lararoi\Models\VatVerification::query()->delete();
+        Cache::flush();
+        VatVerification::query()->delete();
 
         try {
             $result = $service->verifyVatNumber('B99999999', 'ES');
 
             expect($result['cache_status'])->toBe('fresh');
             expect($result['cached'])->toBeFalse();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -135,7 +137,7 @@ describe('VatVerificationService - Caching', function () {
 
             expect($result['cache_status'])->toBe('cached');
             expect($result['cached'])->toBeTrue();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         }
@@ -155,7 +157,7 @@ describe('VatVerificationService - Cache Configuration', function () {
             // Should always return fresh when cache is disabled
             expect($result['cache_status'])->toBe('fresh');
             expect($result['cached'])->toBeFalse();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         } finally {
@@ -167,7 +169,7 @@ describe('VatVerificationService - Cache Configuration', function () {
     it('does not store in database when cache is disabled', function () {
         // Disable cache and clear database
         config(['lararoi.cache.enabled' => false]);
-        \Aichadigital\Lararoi\Models\VatVerification::query()->delete();
+        VatVerification::query()->delete();
 
         $service = app(VatVerificationServiceInterface::class);
 
@@ -175,10 +177,10 @@ describe('VatVerificationService - Cache Configuration', function () {
             $service->verifyVatNumber('B66666666', 'ES');
 
             // Verify it was NOT stored in database
-            $verification = \Aichadigital\Lararoi\Models\VatVerification::findByVatCodeAndCountry('ESB66666666', 'ES');
+            $verification = VatVerification::findByVatCodeAndCountry('ESB66666666', 'ES');
 
             expect($verification)->toBeNull();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         } finally {
@@ -207,7 +209,7 @@ describe('VatVerificationService - Cache Configuration', function () {
 
             // Should either be 'fresh' or 'refreshed' depending on database state
             expect($result['cache_status'])->toBeIn(['fresh', 'refreshed']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // API might be unavailable
             $this->markTestSkipped('API unavailable');
         } finally {
@@ -222,14 +224,14 @@ describe('VatVerificationService - Error Handling', function () {
         $service = app(VatVerificationServiceInterface::class);
 
         expect(fn () => $service->verifyVatNumber('', 'ES'))
-            ->toThrow(\Exception::class);
+            ->toThrow(Exception::class);
     });
 
     it('handles empty country code', function () {
         $service = app(VatVerificationServiceInterface::class);
 
         expect(fn () => $service->verifyVatNumber('B12345678', ''))
-            ->toThrow(\Exception::class);
+            ->toThrow(Exception::class);
     });
 
     it('handles invalid country code format', function () {
@@ -251,7 +253,7 @@ describe('VatVerificationService - VAT Normalization', function () {
             $result = $service->verifyVatNumber('B 123 456 78', 'ES');
 
             expect($result['vat_code'])->not->toContain(' ');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->markTestSkipped('API unavailable');
         }
     });
@@ -263,7 +265,7 @@ describe('VatVerificationService - VAT Normalization', function () {
             $result = $service->verifyVatNumber('b12345678', 'ES');
 
             expect($result['vat_code'])->toBe('ESB12345678');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->markTestSkipped('API unavailable');
         }
     });
@@ -275,7 +277,7 @@ describe('VatVerificationService - VAT Normalization', function () {
             $result = $service->verifyVatNumber('B12345678', 'es');
 
             expect($result['country_code'])->toBe('ES');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->markTestSkipped('API unavailable');
         }
     });
