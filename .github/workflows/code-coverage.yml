@@ -37,7 +37,7 @@ jobs:
           coverage: xdebug
 
       - name: Install composer dependencies
-        uses: ramsey/composer-install@v3
+        uses: ramsey/composer-install@v4
 
       - name: Run tests with coverage
         run: vendor/bin/pest --coverage --coverage-clover=coverage.xml --min=20
