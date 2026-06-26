@@ -90,3 +90,31 @@ describe('VatProviderManager - Order Manipulation', function () {
         expect($result)->toBe($manager);
     });
 });
+
+describe('VatProviderManager - Canonical Default Order', function () {
+    it('exposes a single canonical default provider order', function () {
+        expect(VatProviderManager::DEFAULT_PROVIDER_ORDER)
+            ->toBe(['vies_soap', 'vies_rest', 'isvat']);
+    });
+
+    it('uses the canonical default when no order is configured', function () {
+        config()->set('lararoi.providers_order', null);
+
+        $manager = new VatProviderManager;
+
+        expect($manager->getProviderOrder())->toBe(VatProviderManager::DEFAULT_PROVIDER_ORDER);
+    });
+
+    it('keeps the published config default aligned with the canonical constant', function () {
+        expect(config('lararoi.providers_order'))->toBe(VatProviderManager::DEFAULT_PROVIDER_ORDER);
+    });
+
+    it('falls back to the canonical order when the service provider resolves without config', function () {
+        config()->set('lararoi.providers_order', null);
+        app()->forgetInstance(VatProviderManager::class);
+
+        $manager = app(VatProviderManager::class);
+
+        expect($manager->getProviderOrder())->toBe(VatProviderManager::DEFAULT_PROVIDER_ORDER);
+    });
+});

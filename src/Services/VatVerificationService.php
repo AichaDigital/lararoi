@@ -5,7 +5,9 @@ namespace Aichadigital\Lararoi\Services;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 use Aichadigital\Lararoi\Models\VatVerification;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -48,10 +50,33 @@ class VatVerificationService implements VatVerificationServiceInterface
      */
     public function verifyVatNumber(string $vatNumber, string $countryCode): array
     {
-        // Normalize inputs
-        $vatNumber = strtoupper(trim($vatNumber));
+        // Normalize inputs: upper-case, trim, strip spaces and dashes.
+        $vatNumber = strtoupper(preg_replace('/[\s\-]/', '', trim($vatNumber)) ?? '');
         $countryCode = strtoupper(trim($countryCode));
+
+        // Required arguments.
+        if ($vatNumber === '' || $countryCode === '') {
+            throw new VatVerificationException(
+                'VAT number and country code are required',
+                'INVALID_INPUT'
+            );
+        }
+
         $vatCode = $countryCode.$vatNumber;
+
+        // Syntactic short-circuit: reject obviously malformed VAT numbers for
+        // known countries without hitting any provider.
+        if (! VatFormat::isValid($countryCode, $vatNumber)) {
+            return $this->formatResponse([
+                'is_valid' => false,
+                'vat_code' => $vatCode,
+                'country_code' => $countryCode,
+                'company_name' => null,
+                'company_address' => null,
+                'api_source' => 'LOCAL_VALIDATION',
+                'request_date' => null,
+            ], 'fresh');
+        }
 
         $cacheEnabled = $this->config['cache']['enabled'] ?? true;
 
@@ -100,7 +125,9 @@ class VatVerificationService implements VatVerificationServiceInterface
 
         // 4. Verify via providers (with automatic fallback)
         try {
-            $result = $this->providerManager->verify($vatNumber, $countryCode);
+            $result = $this->normalizeProviderResult(
+                $this->providerManager->verify($vatNumber, $countryCode)
+            );
 
             // 5. Persist to database
             if ($this->model) {
@@ -130,7 +157,9 @@ class VatVerificationService implements VatVerificationServiceInterface
     protected function verifyDirectly(string $vatCode, string $vatNumber, string $countryCode): array
     {
         try {
-            $result = $this->providerManager->verify($vatNumber, $countryCode);
+            $result = $this->normalizeProviderResult(
+                $this->providerManager->verify($vatNumber, $countryCode)
+            );
 
             return $this->formatResponse($result, 'fresh');
         } catch (ApiUnavailableException $e) {
@@ -162,9 +191,9 @@ class VatVerificationService implements VatVerificationServiceInterface
             }
 
             /** @var VatVerification $verification */
-            $verification->is_valid = $result['valid'] ?? false;
-            $verification->company_name = $result['name'] ?? null;
-            $verification->company_address = $result['address'] ?? null;
+            $verification->is_valid = $result['is_valid'] ?? false;
+            $verification->company_name = $result['company_name'] ?? null;
+            $verification->company_address = $result['company_address'] ?? null;
             $verification->api_source = $result['api_source'] ?? 'UNKNOWN';
             $verification->verified_at = \now();
             $verification->response_data = $result;
@@ -179,21 +208,53 @@ class VatVerificationService implements VatVerificationServiceInterface
     }
 
     /**
-     * Format response according to contract
+     * Normalize a provider result (provider vocabulary) into the canonical
+     * internal shape used by caching, persistence and the output formatter.
      *
+     * Providers speak {valid, name, address, vat_number, ...}; the rest of the
+     * service speaks {is_valid, company_name, company_address, vat_code, ...}.
+     * This is the single translation point between the two vocabularies.
+     *
+     * @param  array<string, mixed>  $providerResult
+     * @return array<string, mixed>
+     */
+    protected function normalizeProviderResult(array $providerResult): array
+    {
+        $countryCode = (string) ($providerResult['country_code'] ?? '');
+        $vatNumber = (string) ($providerResult['vat_number'] ?? '');
+
+        return [
+            'is_valid' => (bool) ($providerResult['valid'] ?? false),
+            'vat_code' => $countryCode.$vatNumber,
+            'country_code' => $countryCode,
+            'company_name' => $providerResult['name'] ?? null,
+            'company_address' => $providerResult['address'] ?? null,
+            'api_source' => $providerResult['api_source'] ?? 'UNKNOWN',
+            'request_date' => $providerResult['request_date'] ?? null,
+        ];
+    }
+
+    /**
+     * Format the canonical response shape.
+     *
+     * Input is always the canonical vocabulary (provider results are
+     * normalized via normalizeProviderResult before reaching this point).
+     *
+     * @param  array<string, mixed>  $data  Canonical verification data
      * @param  string  $cacheStatus  One of: 'fresh', 'cached', 'refreshed'
+     * @return array<string, mixed>
      */
     protected function formatResponse(array $data, string $cacheStatus): array
     {
         return [
-            'is_valid' => $data['valid'] ?? $data['is_valid'] ?? false,
-            'vat_code' => ($data['country_code'] ?? '').($data['vat_number'] ?? ''),
+            'is_valid' => $data['is_valid'] ?? false,
+            'vat_code' => $data['vat_code'] ?? '',
             'country_code' => $data['country_code'] ?? '',
-            'company_name' => $data['name'] ?? $data['company_name'] ?? null,
-            'company_address' => $data['address'] ?? $data['company_address'] ?? null,
+            'company_name' => $data['company_name'] ?? null,
+            'company_address' => $data['company_address'] ?? null,
             'api_source' => $data['api_source'] ?? 'UNKNOWN',
-            'cached' => $cacheStatus === 'cached', // For backward compatibility
-            'cache_status' => $cacheStatus, // New field: 'fresh', 'cached', or 'refreshed'
+            'cached' => $cacheStatus === 'cached', // Backward-compatible boolean flag
+            'cache_status' => $cacheStatus, // 'fresh', 'cached', or 'refreshed'
             'request_date' => $data['request_date'] ?? null,
             'response_data' => $data,
         ];
