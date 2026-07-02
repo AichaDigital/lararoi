@@ -32,7 +32,7 @@ class LararoiServiceProvider extends PackageServiceProvider
         $package
             ->name('lararoi')
             ->hasConfigFile()
-            ->hasMigration('create_vat_verifications_table')
+            ->hasMigrations(['2025_01_01_000001_create_vat_verifications_table'])
             ->hasCommands([
                 VerifyVatCommand::class,
                 TestVatProviderCommand::class,
