@@ -2,6 +2,15 @@
 
 All notable changes to `lararoi` will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **Migration is now package-managed** (auto-loaded on `php artisan migrate`) instead of being published from a `.stub`. `create_vat_verifications_table.php.stub` becomes a timestamped `2025_01_01_000001_create_vat_verifications_table.php`, and the service provider registers it via `hasMigrations()` instead of `hasMigration()`. Schema is now provided by the package with 0 stubs, matching the umbrella reference (laratickets/lara-verifactu). Custom model / primary key support (bring-your-own-model) is unaffected.
+- Test suite discovers migrations automatically: `TestCase` uses `RefreshDatabase` + `afterResolving('migrator')` on the migrations directory, dropping the hardcoded `include ... ->up()`. A new migration is now picked up without editing the test setup.
+
+### Breaking (installation contract)
+- Consumers no longer obtain the schema via `vendor:publish` of a migration stub; the `vat_verifications` table is created by running `php artisan migrate` against the package-provided migration.
+
 ## [v0.2.0] - 2025-11-16
 
 ### Added

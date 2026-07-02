@@ -3,6 +3,7 @@
 namespace Aichadigital\Lararoi\Tests;
 
 use Aichadigital\Lararoi\LararoiServiceProvider;
+use Illuminate\Database\Migrations\Migrator;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
@@ -27,8 +28,14 @@ class TestCase extends Orchestra
         // Setup default cache to use array driver
         $app['config']->set('cache.default', 'array');
 
-        // Load migrations
-        $migration = include __DIR__.'/../database/migrations/create_vat_verifications_table.php.stub';
-        $migration->up();
+        // Register the package migrations directory so RefreshDatabase discovers
+        // every migration file automatically. The migrator globs *_*.php, so a
+        // new migration is picked up without editing this file. See the umbrella
+        // CLAUDE.md lesson (2026-07-02): use afterResolving('migrator') + path()
+        // (migrates up only, no rollback in teardown) rather than a hardcoded
+        // include or defineDatabaseMigrations().
+        $app->afterResolving('migrator', function (Migrator $migrator): void {
+            $migrator->path(__DIR__.'/../database/migrations');
+        });
     }
 }
