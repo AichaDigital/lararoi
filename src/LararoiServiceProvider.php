@@ -47,7 +47,7 @@ class LararoiServiceProvider extends PackageServiceProvider
         // Register VatProviderManager FIRST (required by VatVerificationService)
         $this->app->singleton(VatProviderManager::class, function ($app) {
             $config = config('lararoi', []);
-            $providerOrder = $config['providers_order'] ?? ['vies_rest', 'vies_soap'];
+            $providerOrder = $config['providers_order'] ?? VatProviderManager::DEFAULT_PROVIDER_ORDER;
 
             $manager = new VatProviderManager($providerOrder);
 
@@ -56,14 +56,15 @@ class LararoiServiceProvider extends PackageServiceProvider
             $manager->register('vies_soap', new ViesSoapProvider($config['vies']['test_mode'] ?? false));
             $manager->register('isvat', new IsvatProvider($config['provider_config']['isvat']['use_live'] ?? false));
 
-            // Register PAID providers if configured
+            // Register PAID providers when enabled (defaults true) and an API key is set.
+            // enabled gates explicit activation; api_key enables the transport.
             $vatlayerConfig = $config['provider_config']['vatlayer'] ?? [];
-            if (isset($vatlayerConfig['api_key']) && $vatlayerConfig['api_key'] !== '') {
+            if (($vatlayerConfig['enabled'] ?? true) && isset($vatlayerConfig['api_key']) && $vatlayerConfig['api_key'] !== '') {
                 $manager->register('vatlayer', new VatlayerProvider($vatlayerConfig['api_key']));
             }
 
             $viesapiConfig = $config['provider_config']['viesapi'] ?? [];
-            if (isset($viesapiConfig['api_key']) && $viesapiConfig['api_key'] !== '') {
+            if (($viesapiConfig['enabled'] ?? true) && isset($viesapiConfig['api_key']) && $viesapiConfig['api_key'] !== '') {
                 $manager->register('viesapi', new ViesApiProvider(
                     $viesapiConfig['api_key'],
                     $viesapiConfig['api_secret'] ?? null,

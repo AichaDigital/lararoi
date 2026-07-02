@@ -14,55 +14,55 @@ use Illuminate\Support\Collection;
  */
 class VatProviderManager
 {
+    /**
+     * Canonical default provider order — single source of truth.
+     *
+     * Official VIES SOAP first (most reliable), then the REST alternative,
+     * then the free isvat fallback. Paid providers (vatlayer, viesapi) are
+     * intentionally excluded from the default: they are only registered when
+     * an API key is configured.
+     *
+     * @var list<string>
+     */
+    public const DEFAULT_PROVIDER_ORDER = ['vies_soap', 'vies_rest', 'isvat'];
+
     protected Collection $providers;
 
+    /** @var list<string> */
     protected array $providerOrder;
 
+    /**
+     * @param  list<string>  $providerOrder
+     */
     public function __construct(array $providerOrder = [])
     {
         $this->providers = collect();
+        $this->providerOrder = $providerOrder !== []
+            ? $providerOrder
+            : $this->resolveConfiguredOrder();
+    }
 
-        // Use provided order or try to get from config (if Laravel is available)
-        if ($providerOrder !== []) {
-            $this->providerOrder = $providerOrder;
-        } else {
-            // Try to get from config if Laravel helper is available
-            try {
-                if (function_exists('config') && function_exists('app') && app()->bound('config')) {
-                    $configValue = config('lararoi.providers_order', [
-                        'vies_rest',
-                        'vies_soap',
-                        'isvat',
-                        'vatlayer',
-                        'viesapi',
-                    ]);
-                    $this->providerOrder = is_array($configValue) ? $configValue : [
-                        'vies_rest',
-                        'vies_soap',
-                        'isvat',
-                        'vatlayer',
-                        'viesapi',
-                    ];
-                } else {
-                    $this->providerOrder = [
-                        'vies_rest',
-                        'vies_soap',
-                        'isvat',
-                        'vatlayer',
-                        'viesapi',
-                    ];
-                }
-            } catch (\Throwable $e) {
-                // If config is not available, use default
-                $this->providerOrder = [
-                    'vies_rest',
-                    'vies_soap',
-                    'isvat',
-                    'vatlayer',
-                    'viesapi',
-                ];
+    /**
+     * Resolve the provider order from config, falling back to the canonical
+     * default. Safe to call outside a Laravel context (returns the default).
+     *
+     * @return list<string>
+     */
+    protected function resolveConfiguredOrder(): array
+    {
+        try {
+            if (function_exists('config') && function_exists('app') && app()->bound('config')) {
+                $configValue = config('lararoi.providers_order', self::DEFAULT_PROVIDER_ORDER);
+
+                return is_array($configValue) && $configValue !== []
+                    ? $configValue
+                    : self::DEFAULT_PROVIDER_ORDER;
             }
+        } catch (\Throwable) {
+            // Config not available (non-Laravel context): fall through to default.
         }
+
+        return self::DEFAULT_PROVIDER_ORDER;
     }
 
     /**
@@ -143,7 +143,19 @@ class VatProviderManager
     }
 
     /**
+     * Get the current provider order.
+     *
+     * @return list<string>
+     */
+    public function getProviderOrder(): array
+    {
+        return $this->providerOrder;
+    }
+
+    /**
      * Set provider order
+     *
+     * @param  list<string>  $order
      */
     public function setProviderOrder(array $order): self
     {

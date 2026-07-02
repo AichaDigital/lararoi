@@ -1,7 +1,10 @@
 <?php
 
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
+use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 use Aichadigital\Lararoi\Models\VatVerification;
+use Aichadigital\Lararoi\Services\VatProviderManager;
+use Aichadigital\Lararoi\Services\VatVerificationService;
 use Illuminate\Support\Facades\Cache;
 
 describe('VatVerificationService - Basic Verification', function () {
@@ -242,6 +245,118 @@ describe('VatVerificationService - Error Handling', function () {
 
         // Debería manejar el error apropiadamente
         expect($result)->toBeArray();
+    });
+});
+
+describe('VatVerificationService - Syntactic validation', function () {
+    it('short-circuits an invalid VAT for a known country without calling any provider', function () {
+        config()->set('lararoi.cache.enabled', false);
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')->never();
+
+        $service = new VatVerificationService($manager);
+        $result = $service->verifyVatNumber('123', 'ES'); // malformed ES VAT
+
+        expect($result['is_valid'])->toBeFalse()
+            ->and($result['api_source'])->toBe('LOCAL_VALIDATION')
+            ->and($result['cache_status'])->toBe('fresh')
+            ->and($result['vat_code'])->toBe('ES123');
+    });
+
+    it('passes a well-formed VAT through to the provider', function () {
+        config()->set('lararoi.cache.enabled', false);
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')
+            ->once()
+            ->with('B12345678', 'ES')
+            ->andReturn([
+                'valid' => true,
+                'name' => 'ACME SL',
+                'address' => null,
+                'request_date' => null,
+                'vat_number' => 'B12345678',
+                'country_code' => 'ES',
+                'api_source' => 'VIES_SOAP',
+            ]);
+
+        $service = new VatVerificationService($manager);
+        $result = $service->verifyVatNumber('B12345678', 'ES');
+
+        expect($result['is_valid'])->toBeTrue()
+            ->and($result['api_source'])->toBe('VIES_SOAP');
+    });
+
+    it('normalizes spaces and dashes before validating and verifying', function () {
+        config()->set('lararoi.cache.enabled', false);
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')
+            ->once()
+            ->with('B12345678', 'ES') // spaces and dashes stripped
+            ->andReturn([
+                'valid' => true,
+                'name' => null,
+                'address' => null,
+                'request_date' => null,
+                'vat_number' => 'B12345678',
+                'country_code' => 'ES',
+                'api_source' => 'VIES_SOAP',
+            ]);
+
+        $service = new VatVerificationService($manager);
+        $result = $service->verifyVatNumber('B-123 456 78', 'es');
+
+        expect($result['vat_code'])->toBe('ESB12345678')
+            ->and($result['vat_code'])->not->toContain(' ');
+    });
+
+    it('throws a VatVerificationException for empty VAT or country code', function () {
+        $service = app(VatVerificationServiceInterface::class);
+
+        expect(fn () => $service->verifyVatNumber('', 'ES'))
+            ->toThrow(VatVerificationException::class);
+
+        expect(fn () => $service->verifyVatNumber('B12345678', ''))
+            ->toThrow(VatVerificationException::class);
+    });
+});
+
+describe('VatVerificationService - Canonical Output Shape', function () {
+    it('maps a provider result to the canonical output shape without leaking provider-native keys', function () {
+        config()->set('lararoi.cache.enabled', false);
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')
+            ->once()
+            ->with('B12345678', 'ES')
+            ->andReturn([
+                'valid' => true,
+                'name' => 'ACME SL',
+                'address' => 'Calle Uno 1',
+                'request_date' => '2026-01-01',
+                'vat_number' => 'B12345678',
+                'country_code' => 'ES',
+                'api_source' => 'VIES_SOAP',
+            ]);
+
+        $service = new VatVerificationService($manager);
+        $result = $service->verifyVatNumber('B12345678', 'ES');
+
+        // Canonical keys consumed by larabill and the published contract.
+        expect($result['is_valid'])->toBeTrue()
+            ->and($result['company_name'])->toBe('ACME SL')
+            ->and($result['company_address'])->toBe('Calle Uno 1')
+            ->and($result['api_source'])->toBe('VIES_SOAP')
+            ->and($result['vat_code'])->toBe('ESB12345678')
+            ->and($result['country_code'])->toBe('ES')
+            ->and($result['cache_status'])->toBe('fresh');
+
+        // Provider-native vocabulary must not leak into the top-level shape.
+        expect($result)->not->toHaveKey('valid')
+            ->and($result)->not->toHaveKey('name')
+            ->and($result)->not->toHaveKey('address');
     });
 });
 

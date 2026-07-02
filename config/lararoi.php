@@ -1,6 +1,7 @@
 <?php
 
 use Aichadigital\Lararoi\Models\VatVerification;
+use Aichadigital\Lararoi\Services\VatProviderManager;
 
 return [
     /*
@@ -77,9 +78,9 @@ return [
     | Default order: Official VIES first, then REST alternative, then free fallback
     |
     */
-    'providers_order' => env('PROVIDERS_ORDER', 'vies_soap,vies_rest,isvat')
-        ? array_map('trim', explode(',', env('PROVIDERS_ORDER', 'vies_soap,vies_rest,isvat')))
-        : ['vies_soap', 'vies_rest', 'isvat'],
+    'providers_order' => ($providersOrder = env('PROVIDERS_ORDER'))
+        ? array_map('trim', explode(',', (string) $providersOrder))
+        : VatProviderManager::DEFAULT_PROVIDER_ORDER,
 
     /*
     |--------------------------------------------------------------------------
@@ -109,15 +110,20 @@ return [
     |
     | Specific configuration for each paid provider.
     |
+    | A paid provider is registered only when it is enabled AND an API key is
+    | present. The 'enabled' flag controls explicit activation and defaults to
+    | true, so setting just the API key is enough to activate a provider; set
+    | 'enabled' => false to keep credentials in place while disabling it.
+    |
     */
     'provider_config' => [
         'vatlayer' => [
-            'enabled' => env('VATLAYER_ENABLED', false),
+            'enabled' => env('VATLAYER_ENABLED', true),
             'api_key' => env('VATLAYER_KEY'),
         ],
 
         'viesapi' => [
-            'enabled' => env('VIESAPI_ENABLED', false),
+            'enabled' => env('VIESAPI_ENABLED', true),
             'api_key' => env('VIESAPI_KEY'),
             'api_secret' => env('VIESAPI_SECRET'), // Second value if provided
             'ip' => env('VIESAPI_IP'), // IP for whitelist/configuration
