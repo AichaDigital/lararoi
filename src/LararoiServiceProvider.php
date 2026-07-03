@@ -6,10 +6,14 @@ use Aichadigital\Lararoi\Console\Commands\Dev\GenerateStubsCommand;
 use Aichadigital\Lararoi\Console\Commands\Dev\ListProvidersCommand;
 use Aichadigital\Lararoi\Console\Commands\Dev\TestVatFromFileCommand;
 use Aichadigital\Lararoi\Console\Commands\Dev\TestVatProviderCommand;
+use Aichadigital\Lararoi\Console\Commands\PruneVerificationQueriesCommand;
 use Aichadigital\Lararoi\Console\Commands\VerifyVatCommand;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
+use Aichadigital\Lararoi\Contracts\VerificationQueryModelInterface;
+use Aichadigital\Lararoi\Contracts\VerificationTrackerInterface;
 use Aichadigital\Lararoi\Models\VatVerification;
+use Aichadigital\Lararoi\Models\VerificationQuery;
 use Aichadigital\Lararoi\Providers\IsvatProvider;
 use Aichadigital\Lararoi\Providers\VatlayerProvider;
 use Aichadigital\Lararoi\Providers\ViesApiProvider;
@@ -17,6 +21,7 @@ use Aichadigital\Lararoi\Providers\ViesRestProvider;
 use Aichadigital\Lararoi\Providers\ViesSoapProvider;
 use Aichadigital\Lararoi\Services\VatProviderManager;
 use Aichadigital\Lararoi\Services\VatVerificationService;
+use Aichadigital\Lararoi\Services\VerificationTracker;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -35,6 +40,7 @@ class LararoiServiceProvider extends PackageServiceProvider
             ->hasMigrations([
                 '2025_01_01_000001_create_vat_verifications_table',
                 '2026_07_03_000001_rename_vat_verifications_to_roi',
+                '2026_07_03_000002_create_roi_verification_queries_table',
             ])
             ->hasCommands([
                 VerifyVatCommand::class,
@@ -42,6 +48,7 @@ class LararoiServiceProvider extends PackageServiceProvider
                 TestVatFromFileCommand::class,
                 ListProvidersCommand::class,
                 GenerateStubsCommand::class,
+                PruneVerificationQueriesCommand::class,
             ]);
     }
 
@@ -78,12 +85,21 @@ class LararoiServiceProvider extends PackageServiceProvider
             return $manager;
         });
 
-        // Main service binding
-        $this->app->singleton(VatVerificationServiceInterface::class, function ($app) {
-            return new VatVerificationService($app->make(VatProviderManager::class));
+        // Tracking / audit binding (ADR-002 D3/D4)
+        $this->app->singleton(VerificationTrackerInterface::class, function ($app) {
+            return new VerificationTracker;
         });
 
-        // Model binding
+        // Main service binding
+        $this->app->singleton(VatVerificationServiceInterface::class, function ($app) {
+            return new VatVerificationService(
+                $app->make(VatProviderManager::class),
+                $app->make(VerificationTrackerInterface::class),
+            );
+        });
+
+        // Model bindings (both cache and tracking models are swappable)
         $this->app->bind(VatVerificationModelInterface::class, VatVerification::class);
+        $this->app->bind(VerificationQueryModelInterface::class, VerificationQuery::class);
     }
 }

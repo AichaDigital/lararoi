@@ -4,10 +4,12 @@ namespace Aichadigital\Lararoi\Services;
 
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
+use Aichadigital\Lararoi\Contracts\VerificationTrackerInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 use Aichadigital\Lararoi\Models\VatVerification;
 use Aichadigital\Lararoi\Support\VatFormat;
+use Aichadigital\Lararoi\ValueObjects\VerificationContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -26,11 +28,16 @@ class VatVerificationService implements VatVerificationServiceInterface
 
     protected ?VatVerificationModelInterface $model = null;
 
+    protected ?VerificationTrackerInterface $tracker;
+
     protected array $config;
 
-    public function __construct(?VatProviderManager $providerManager = null)
-    {
+    public function __construct(
+        ?VatProviderManager $providerManager = null,
+        ?VerificationTrackerInterface $tracker = null,
+    ) {
         $this->providerManager = $providerManager ?? app(VatProviderManager::class);
+        $this->tracker = $tracker;
         $this->config = function_exists('config') ? config('lararoi', []) : [];
 
         // Set model from config with backward compatibility
@@ -49,8 +56,11 @@ class VatVerificationService implements VatVerificationServiceInterface
     /**
      * {@inheritDoc}
      */
-    public function verifyVatNumber(string $vatNumber, string $countryCode): array
-    {
+    public function verifyVatNumber(
+        string $vatNumber,
+        string $countryCode,
+        ?VerificationContext $context = null,
+    ): array {
         // Normalize inputs: upper-case, trim, strip spaces and dashes.
         $vatNumber = strtoupper(preg_replace('/[\s\-]/', '', trim($vatNumber)) ?? '');
         $countryCode = strtoupper(trim($countryCode));
@@ -68,7 +78,7 @@ class VatVerificationService implements VatVerificationServiceInterface
         // Syntactic short-circuit: reject obviously malformed VAT numbers for
         // known countries without hitting any provider.
         if (! VatFormat::isValid($countryCode, $vatNumber)) {
-            return $this->formatResponse([
+            return $this->finish($context, $this->formatResponse([
                 'is_valid' => false,
                 'vat_code' => $vatCode,
                 'country_code' => $countryCode,
@@ -76,14 +86,14 @@ class VatVerificationService implements VatVerificationServiceInterface
                 'company_address' => null,
                 'api_source' => 'LOCAL_VALIDATION',
                 'request_date' => null,
-            ], 'fresh');
+            ], 'fresh'));
         }
 
         $cacheEnabled = $this->config['cache']['enabled'] ?? true;
 
         // If cache is disabled, skip to direct verification (most agnostic mode)
         if (! $cacheEnabled) {
-            return $this->verifyDirectly($vatCode, $vatNumber, $countryCode);
+            return $this->finish($context, $this->verifyDirectly($vatCode, $vatNumber, $countryCode));
         }
 
         // 2. Check in-memory cache (Laravel Cache)
@@ -96,7 +106,7 @@ class VatVerificationService implements VatVerificationServiceInterface
                 'cached_at' => $cached['cached_at'] ?? null,
             ]);
 
-            return $this->formatResponse($cached, 'cached');
+            return $this->finish($context, $this->formatResponse($cached, 'cached'));
         }
 
         // 3. Check database
@@ -117,7 +127,7 @@ class VatVerificationService implements VatVerificationServiceInterface
                 // Update memory cache
                 $this->updateCache($cacheKey, $data);
 
-                return $this->formatResponse($data, 'cached');
+                return $this->finish($context, $this->formatResponse($data, 'cached'));
             }
 
             // If we found expired data in database, we'll refresh it
@@ -141,7 +151,7 @@ class VatVerificationService implements VatVerificationServiceInterface
             // Determine cache status: 'refreshed' if updating expired cache, 'fresh' if new
             $cacheStatus = isset($isRefresh) && $isRefresh ? 'refreshed' : 'fresh';
 
-            return $this->formatResponse($result, $cacheStatus);
+            return $this->finish($context, $this->formatResponse($result, $cacheStatus));
         } catch (ApiUnavailableException $e) {
             // If all providers fail, return error
             Log::error('All VAT verification providers failed', [
@@ -150,6 +160,47 @@ class VatVerificationService implements VatVerificationServiceInterface
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Passive (inline) tracking path (ADR-002 D4).
+     *
+     * When a context is supplied AND tracking is enabled, record one append-only
+     * row for the resolved result and return it unchanged. With no context or
+     * tracking disabled this writes nothing silently — the passive path where
+     * "no tracking" is an acceptable default, not a lost explicit intent. An
+     * enabled but unregistered consumer surfaces UnknownConsumerException (D5),
+     * which propagates out of verifyVatNumber().
+     *
+     * @param  array<string, mixed>  $response  the canonical service result
+     * @return array<string, mixed>
+     */
+    protected function finish(?VerificationContext $context, array $response): array
+    {
+        if ($context === null || ! (bool) config('lararoi.tracking.enabled', false)) {
+            return $response;
+        }
+
+        $this->resolveTracker()?->record($context, $response);
+
+        return $response;
+    }
+
+    /**
+     * Resolve the tracker lazily so direct construction (without a tracker)
+     * stays backward-compatible: it is only needed when the passive path fires.
+     */
+    protected function resolveTracker(): ?VerificationTrackerInterface
+    {
+        if ($this->tracker !== null) {
+            return $this->tracker;
+        }
+
+        if (function_exists('app') && app()->bound(VerificationTrackerInterface::class)) {
+            $this->tracker = app(VerificationTrackerInterface::class);
+        }
+
+        return $this->tracker;
     }
 
     /**
