@@ -4,6 +4,15 @@ All notable changes to `lararoi` will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.1] - 2026-07-03
+
+### Documentation
+- README refreshed for v1.0: dropped the beta banner, updated the feature list (tracking/audit log, per-consumer retention, output mapping, formal contract set), fixed the config publish tag to `lararoi-config`, and reflected the package-managed schema (`php artisan migrate`; tables `roi_vat_verifications` + `roi_verification_queries`). Linked `docs/contracts.md` and the ADRs.
+
+### Fixed
+- `VatVerificationServiceInterface::verifyVatNumber()` docblock no longer lists `@throws TrackingDisabledException`: that exception cannot surface on the inline tracking path (it is gated behind `tracking.enabled`, so only `UnknownConsumerException` can throw out of `verifyVatNumber()`). Dropped the now-unused import.
+- Clarified the `VerificationResultMapperInterface::map()` docblock: the input is the full `verifyVatNumber()` result (with the seven canonical facts guaranteed), matching the implementation and examples, rather than "the seven facts" alone.
+
 ## [v1.0.0] - 2026-07-03
 
 lararoi is now the single owner of the intra-community VAT/NIF verification domain — verification, cache, **and** multi-consumer tracking/audit — served to consumers through explicit, stable contracts and agnostic configuration (ADR-001, ADR-002). This is the first release consumers can pin to a real contract.

@@ -2,7 +2,6 @@
 
 namespace Aichadigital\Lararoi\Contracts;
 
-use Aichadigital\Lararoi\Exceptions\TrackingDisabledException;
 use Aichadigital\Lararoi\Exceptions\UnknownConsumerException;
 use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 use Aichadigital\Lararoi\ValueObjects\VerificationContext;
@@ -41,8 +40,7 @@ interface VatVerificationServiceInterface
      * }
      *
      * @throws VatVerificationException
-     * @throws TrackingDisabledException
-     * @throws UnknownConsumerException
+     * @throws UnknownConsumerException when tracking is enabled and the context's consumer is not registered
      */
     public function verifyVatNumber(
         string $vatNumber,
