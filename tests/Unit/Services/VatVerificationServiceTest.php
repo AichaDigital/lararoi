@@ -360,6 +360,70 @@ describe('VatVerificationService - Canonical Output Shape', function () {
     });
 });
 
+describe('VatVerificationService - Atomic Upsert Persistence (ADR-002 D2)', function () {
+    it('upserts a single row per NIF, updating on the second persist', function () {
+        $service = app(VatVerificationServiceInterface::class);
+        $persist = (new ReflectionClass($service))->getMethod('persistVerification');
+        $persist->setAccessible(true);
+
+        $first = [
+            'is_valid' => true,
+            'vat_code' => 'ESB12345678',
+            'country_code' => 'ES',
+            'company_name' => 'ACME SL',
+            'company_address' => 'Calle Uno 1',
+            'api_source' => 'VIES_SOAP',
+            'request_date' => '2026-01-01',
+        ];
+        $second = array_merge($first, [
+            'is_valid' => false,
+            'company_name' => 'ACME SL (updated)',
+            'api_source' => 'VIES_REST',
+        ]);
+
+        $persist->invoke($service, 'ESB12345678', 'ES', $first);
+        $persist->invoke($service, 'ESB12345678', 'ES', $second);
+
+        $rows = VatVerification::query()
+            ->where('vat_code', 'ESB12345678')
+            ->where('country_code', 'ES')
+            ->get();
+
+        // The UNIQUE index + upsert converge on exactly one row.
+        expect($rows)->toHaveCount(1);
+
+        $row = $rows->first();
+        expect($row->is_valid)->toBeFalse()
+            ->and($row->company_name)->toBe('ACME SL (updated)')
+            ->and($row->api_source)->toBe('VIES_REST');
+    });
+
+    it('round-trips response_data as an array after an upsert', function () {
+        $service = app(VatVerificationServiceInterface::class);
+        $persist = (new ReflectionClass($service))->getMethod('persistVerification');
+        $persist->setAccessible(true);
+
+        $result = [
+            'is_valid' => true,
+            'vat_code' => 'ESB99999999',
+            'country_code' => 'ES',
+            'company_name' => 'Nested Co',
+            'company_address' => null,
+            'api_source' => 'VIES_SOAP',
+            'request_date' => '2026-02-02',
+        ];
+
+        $persist->invoke($service, 'ESB99999999', 'ES', $result);
+
+        $row = VatVerification::findByVatCodeAndCountry('ESB99999999', 'ES');
+
+        expect($row)->not->toBeNull()
+            ->and($row->response_data)->toBeArray()
+            ->and($row->response_data['company_name'])->toBe('Nested Co')
+            ->and($row->response_data['api_source'])->toBe('VIES_SOAP');
+    });
+});
+
 describe('VatVerificationService - VAT Normalization', function () {
     it('removes spaces from VAT number', function () {
         $service = app(VatVerificationServiceInterface::class);
