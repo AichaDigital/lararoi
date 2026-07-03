@@ -11,7 +11,9 @@ use Aichadigital\Lararoi\Console\Commands\VerifyVatCommand;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Contracts\VerificationQueryModelInterface;
+use Aichadigital\Lararoi\Contracts\VerificationResultMapperInterface;
 use Aichadigital\Lararoi\Contracts\VerificationTrackerInterface;
+use Aichadigital\Lararoi\Mappers\IdentityVerificationResultMapper;
 use Aichadigital\Lararoi\Models\VatVerification;
 use Aichadigital\Lararoi\Models\VerificationQuery;
 use Aichadigital\Lararoi\Providers\IsvatProvider;
@@ -21,6 +23,7 @@ use Aichadigital\Lararoi\Providers\ViesRestProvider;
 use Aichadigital\Lararoi\Providers\ViesSoapProvider;
 use Aichadigital\Lararoi\Services\VatProviderManager;
 use Aichadigital\Lararoi\Services\VatVerificationService;
+use Aichadigital\Lararoi\Services\VerificationResultMapperRegistry;
 use Aichadigital\Lararoi\Services\VerificationTracker;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -101,5 +104,16 @@ class LararoiServiceProvider extends PackageServiceProvider
         // Model bindings (both cache and tracking models are swappable)
         $this->app->bind(VatVerificationModelInterface::class, VatVerification::class);
         $this->app->bind(VerificationQueryModelInterface::class, VerificationQuery::class);
+
+        // Output mapping (ADR-002 D6). The default mapper is identity (canonical
+        // shape unchanged); the registry resolves a per-consumer mapper and is a
+        // separate, consumer-invoked transform — never applied inside verifyVatNumber().
+        $this->app->bind(VerificationResultMapperInterface::class, IdentityVerificationResultMapper::class);
+
+        $this->app->singleton(VerificationResultMapperRegistry::class, function ($app) {
+            return new VerificationResultMapperRegistry(
+                $app->make(VerificationResultMapperInterface::class),
+            );
+        });
     }
 }

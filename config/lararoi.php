@@ -197,10 +197,17 @@ return [
     | an unregistered key. Legal retention is the consumer's fiscal obligation;
     | lararoi is the storage + enforcement.
     |
+    | A consumer entry may also carry an optional `mapper` (ADR-002 D6): a class
+    | implementing VerificationResultMapperInterface that transforms the canonical
+    | result into the consumer's own shape. It is a separate, consumer-invoked
+    | transform resolved via VerificationResultMapperRegistry::mapperFor() — it is
+    | NEVER applied inside verifyVatNumber(), which always returns the canonical
+    | array. Absent → the identity mapper (canonical shape unchanged).
+    |
     | Example:
     | 'consumers' => [
-    |     'larabill' => ['retention_days' => 2555], // explicit policy (7y example)
-    |     'openmiza' => ['retention_days' => null],  // conscious "keep forever"
+    |     'larabill' => ['retention_days' => 2555, 'mapper' => \App\Lararoi\LarabillVatMapper::class], // explicit policy (7y) + own shape
+    |     'openmiza' => ['retention_days' => null],  // conscious "keep forever", canonical shape
     | ],
     |
     */
