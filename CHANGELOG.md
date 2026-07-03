@@ -4,6 +4,14 @@ All notable changes to `lararoi` will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.2] - 2026-07-03
+
+### Fixed
+- The service provider now loads the package migrations via `loadMigrationsFrom()` in `boot()` (gated by `runningInConsole()`), so a consumer's plain `php artisan migrate` creates the `roi_*` tables as the README promises (AID-323). Previously they were only registered with Spatie's `hasMigrations()`, which makes them publishable but never feeds the migrator — consumers got no tables. The package's own suite masked the gap by registering the migrations path in its TestCase; that registration is removed so the whole suite now pins the provider's behavior, plus an explicit regression test (`MigrationLoadingTest`).
+
+### Known upgrade-path gap (documented, not changed)
+- Consumers coming from larabill 3.x with the legacy `vat_verifications` table already created will see `2025_01_01_000001_create_vat_verifications_table` collide (unguarded `Schema::create`). Drop the legacy larabill tables (`vat_verifications`, `roi_queries`, `user_roi_verifications`) and their migration-ledger rows before running `php artisan migrate` — or rebuild the database where acceptable.
+
 ## [v1.0.1] - 2026-07-03
 
 ### Documentation
