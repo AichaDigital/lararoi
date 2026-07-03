@@ -1,6 +1,7 @@
 <?php
 
 use Aichadigital\Lararoi\Models\VatVerification;
+use Aichadigital\Lararoi\Models\VerificationQuery;
 use Aichadigital\Lararoi\Services\VatProviderManager;
 
 return [
@@ -155,6 +156,56 @@ return [
             // Model class to use (must implement VatVerificationModelInterface)
             'class' => env('VAT_VERIFICATION_MODEL', VatVerification::class),
         ],
+
+        // Swappable tracking model (ADR-002 D3). Must implement
+        // VerificationQueryModelInterface. A consumer that needs a different
+        // store swaps the model here instead of renaming lararoi's tables.
+        'verification_query' => [
+            'class' => env('VERIFICATION_QUERY_MODEL', VerificationQuery::class),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tracking / Audit Log
+    |--------------------------------------------------------------------------
+    |
+    | Multi-consumer append-only tracking of "who verified what, when"
+    | (ADR-002 D3/D4). Inert by default: a row is written only when tracking
+    | is enabled AND a VerificationContext is supplied (or via an explicit
+    | VerificationTrackerInterface::record() call). This is the single
+    | kill-switch — with it off, nothing is recorded.
+    |
+    */
+    'tracking' => [
+        'enabled' => env('LARAROI_TRACKING_ENABLED', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Consumers (retention allow-list)
+    |--------------------------------------------------------------------------
+    |
+    | Explicit allow-list keyed by consumer id (ADR-002 D5). When tracking is
+    | enabled, recording a verification for a consumer that is NOT listed here
+    | throws UnknownConsumerException — closing the typo hole where a mistyped
+    | key would silently accumulate unpolicied, never-pruned history.
+    |
+    | Each consumer declares `retention_days`: lararoi stamps
+    | retention_until = queried_at + retention_days (UTC). A null value is a
+    | conscious "keep forever" choice (never auto-pruned), not the accident of
+    | an unregistered key. Legal retention is the consumer's fiscal obligation;
+    | lararoi is the storage + enforcement.
+    |
+    | Example:
+    | 'consumers' => [
+    |     'larabill' => ['retention_days' => 2555], // explicit policy (7y example)
+    |     'openmiza' => ['retention_days' => null],  // conscious "keep forever"
+    | ],
+    |
+    */
+    'consumers' => [
+        //
     ],
 
 ];
