@@ -8,6 +8,7 @@ use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 use Aichadigital\Lararoi\Models\VatVerification;
 use Aichadigital\Lararoi\Support\VatFormat;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -172,7 +173,16 @@ class VatVerificationService implements VatVerificationServiceInterface
     }
 
     /**
-     * Persist verification to database
+     * Persist verification to database.
+     *
+     * A single atomic upsert keyed on the UNIQUE (vat_code, country_code) index
+     * (ADR-002 D1/D2): concurrent verifications of the same NIF converge on one
+     * row instead of racing a read-then-write to insert duplicates. The row is
+     * built through the model so casts apply (response_data serialized as JSON,
+     * verified_at formatted as a datetime), then handed to the upsert already
+     * serialized — Eloquent's upsert() does not apply casts itself.
+     *
+     * @param  array<string, mixed>  $result  Canonical verification data
      */
     protected function persistVerification(string $vatCode, string $countryCode, array $result): void
     {
@@ -181,24 +191,30 @@ class VatVerificationService implements VatVerificationServiceInterface
         }
 
         try {
-            $verification = $this->model::findByVatCodeAndCountry($vatCode, $countryCode);
+            $row = new ($this->model::class)();
 
-            if (! $verification) {
-                /** @var VatVerification $verification */
-                $verification = new ($this->model::class)();
-                $verification->vat_code = $vatCode;
-                $verification->country_code = $countryCode;
+            // The interface does not guarantee Eloquent, but every shipped/swapped
+            // model is an Eloquent Model; upsert() lives on the query builder.
+            if (! $row instanceof Model) {
+                return;
             }
 
-            /** @var VatVerification $verification */
-            $verification->is_valid = $result['is_valid'] ?? false;
-            $verification->company_name = $result['company_name'] ?? null;
-            $verification->company_address = $result['company_address'] ?? null;
-            $verification->api_source = $result['api_source'] ?? 'UNKNOWN';
-            $verification->verified_at = \now();
-            $verification->response_data = $result;
+            $row->forceFill([
+                'vat_code' => $vatCode,
+                'country_code' => $countryCode,
+                'is_valid' => $result['is_valid'] ?? false,
+                'company_name' => $result['company_name'] ?? null,
+                'company_address' => $result['company_address'] ?? null,
+                'api_source' => $result['api_source'] ?? 'UNKNOWN',
+                'verified_at' => \now(),
+                'response_data' => $result,
+            ]);
 
-            $verification->save();
+            $row->newQuery()->upsert(
+                [$row->getAttributes()],
+                ['vat_code', 'country_code'],
+                ['is_valid', 'company_name', 'company_address', 'api_source', 'verified_at', 'response_data'],
+            );
         } catch (\Exception $e) {
             Log::warning('Failed to persist VAT verification', [
                 'vat_code' => $vatCode,

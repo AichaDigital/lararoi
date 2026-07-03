@@ -22,6 +22,7 @@ test('can resolve VAT provider manager', function () {
     expect($manager->getProviders())->not->toBeEmpty();
 });
 
-test('vat verification table exists', function () {
-    expect(Schema::hasTable('vat_verifications'))->toBeTrue();
+test('vat verification table exists under the roi_ prefix', function () {
+    expect(Schema::hasTable('roi_vat_verifications'))->toBeTrue();
+    expect(Schema::hasTable('vat_verifications'))->toBeFalse();
 });
