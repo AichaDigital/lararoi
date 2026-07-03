@@ -22,11 +22,14 @@ interface VerificationResultMapperInterface
     /**
      * Transform the canonical verification result into the consumer's own shape.
      *
-     * The input is the seven canonical verification facts — the same set the
-     * tracker snapshots (D3): is_valid, vat_code, country_code, company_name,
-     * company_address, api_source, request_date.
+     * The input is the canonical result array returned by verifyVatNumber(). The
+     * seven canonical verification facts are always present and are the stable
+     * part a mapper should rely on: is_valid, vat_code, country_code,
+     * company_name, company_address, api_source, request_date. (The array also
+     * carries cache meta — cached/cache_status — and a nested response_data; a
+     * mapper may ignore those.)
      *
-     * @param  array<string, mixed>  $canonical  the seven canonical verification facts
+     * @param  array<string, mixed>  $canonical  the verifyVatNumber() result (the seven facts guaranteed)
      * @return mixed the consumer's own shape (unknown to lararoi)
      */
     public function map(array $canonical): mixed;
