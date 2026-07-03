@@ -120,7 +120,7 @@ describe('VatVerification Model - Expiration Logic', function () {
     });
 
     it('is expired when verified_at exceeds TTL', function () {
-        config(['lararoi.cache_ttl' => 3600]); // 1 hour
+        config(['lararoi.cache.ttl' => 3600]); // 1 hour
 
         $verification = VatVerification::create([
             'vat_code' => 'B12345678',
@@ -133,7 +133,7 @@ describe('VatVerification Model - Expiration Logic', function () {
     });
 
     it('is not expired when within TTL', function () {
-        config(['lararoi.cache_ttl' => 7200]); // 2 hours
+        config(['lararoi.cache.ttl' => 7200]); // 2 hours
 
         $verification = VatVerification::create([
             'vat_code' => 'B12345678',
@@ -267,7 +267,7 @@ describe('VatVerification Model - Scopes', function () {
     });
 
     it('filters expired verifications using scope', function () {
-        config(['lararoi.cache_ttl' => 3600]); // 1 hour
+        config(['lararoi.cache.ttl' => 3600]); // 1 hour
 
         VatVerification::create([
             'vat_code' => 'EXPIRED123',
