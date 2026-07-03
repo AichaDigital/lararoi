@@ -1,266 +1,151 @@
-# Lararoi - Package Context for AI Agents
+# lararoi — Context for AI Agents
 
-> **Read this file first** to understand the package's purpose, architecture, and conventions.
+> Read this first for orientation. It summarizes the package; the **source of
+> truth** is the code plus the ADRs and reference docs linked at the bottom.
+> When this file and those disagree, they win — fix this file.
 
-## 🎯 Package Identity
+## Identity
 
-**Lararoi** is a Laravel package for **EU VAT/NIF verification** (ROI = Registro de Operadores Intracomunitarios). It verifies tax identification numbers via VIES (European Commission) and alternative providers.
-
-### Critical Information
+**lararoi** owns the intra-community **VAT/NIF (ROI) verification domain**: the
+verification itself, its TTL cache, and a multi-consumer tracking/audit log —
+exposed to consumer apps (billing, accounting, …) through explicit, stable
+contracts and agnostic configuration. Consumers verify *through* lararoi; they
+never reimplement the domain (ADR-001, ADR-002).
 
 | Item | Value |
 |------|-------|
-| **Version** | dev-main (targeting v1.0 for Dec 15, 2025) |
-| **PHP** | ^8.3 |
-| **Laravel** | ^11.0 \| ^12.0 |
-| **License** | AGPL-3.0-or-later |
-| **Status** | Beta (v0.2.x) |
-
-### Ecosystem Context
-
-Lararoi is part of the **AichaDigital billing ecosystem**:
-
-```
-aichadigital/
-├── larabill/        # Core billing (uses lararoi for VAT verification)
-├── lara100/         # Base-100 monetary calculations
-├── lararoi/         # EU VAT/ROI verification (THIS PACKAGE)
-├── lara-verifactu/  # Spain AEAT VeriFACTU
-└── laratickets/     # Support tickets
-```
-
-**Primary staging environment**: [Larafactu](https://github.com/AichaDigital/larafactu)
-
-### Development Setup (Local)
-
-```
-/Users/abkrim/
-├── development/packages/aichadigital/  # Package SOURCE (edit here)
-│   ├── larabill/
-│   ├── lararoi/                        # THIS PACKAGE
-│   ├── lara-verifactu/
-│   └── laratickets/
-└── SitesLR12/larafactu/                # Staging APP
-    └── packages/aichadigital/          # Symlinks to source
-```
-
-**Workflow**: Edit in source → Test in Larafactu → Commit package first
-
-## 🐛 Debugging Strategy (CRITICAL)
-
-### ALWAYS Read Logs First
-
-**RULE**: Before assuming the cause of ANY error, **READ THE ACTUAL LOGS**.
-
-```bash
-# In Larafactu staging
-cd /Users/abkrim/SitesLR12/larafactu
-
-# Clear logs for clean output
-rm storage/logs/laravel.log && touch storage/logs/laravel.log
-
-# Reproduce the error, then read
-cat storage/logs/laravel.log | head -50
-```
-
-Browser error messages are often **symptoms**, not root causes. Always check logs first.
-
-## 🏗️ Architecture
-
-### Core Purpose
-
-1. **VAT Number Verification**: Validate EU VAT numbers via VIES
-2. **Provider Fallback**: Multiple API providers with automatic fallback
-3. **Caching**: Memory + database caching for performance
-4. **Audit Trail**: Log all verification attempts
-
-### Key Services
-
-```php
-// Main verification service
-use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
-
-$service = app(VatVerificationServiceInterface::class);
-$result = $service->verifyVatNumber('B12345678', 'ES');
-
-if ($result['is_valid']) {
-    echo "Company: " . $result['company_name'];
-}
-```
-
-### Providers
-
-The package supports multiple verification providers:
-
-1. **VIES SOAP** (Official EU Commission) - Free, primary
-2. **AbstractAPI** - Paid, backup
-3. **APILayer** - Paid, backup
-
-Automatic fallback when primary fails.
-
-## 📁 Package Structure
-
-```
-lararoi/
-├── config/lararoi.php          # Package configuration
-├── database/migrations/        # ROI queries table
-├── docs/
-│   ├── AGENT_CONTEXT.md        # This file
-│   ├── configuration.md        # Config guide
-│   ├── development.md          # Dev guide
-│   ├── integration.md          # Integration guide
-│   ├── project.md              # API documentation
-│   └── usage.md                # Usage examples
-├── src/
-│   ├── Contracts/              # Interfaces
-│   ├── DTOs/                   # Data Transfer Objects
-│   ├── Enums/                  # Status enums
-│   ├── Events/                 # Domain events
-│   ├── Exceptions/             # Custom exceptions
-│   ├── Models/                 # RoiQuery model
-│   ├── Providers/              # API providers
-│   │   ├── ViesProvider.php    # VIES SOAP client
-│   │   ├── AbstractApiProvider.php
-│   │   └── ApiLayerProvider.php
-│   └── Services/               # Business logic
-└── tests/                      # Pest tests
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-```env
-# Primary provider
-LARAROI_PRIMARY_PROVIDER=vies
-
-# AbstractAPI (backup)
-LARAROI_ABSTRACTAPI_KEY=your_key
-
-# APILayer (backup)
-LARAROI_APILAYER_KEY=your_key
-
-# Caching
-LARAROI_CACHE_TTL=86400  # 24 hours
-LARAROI_CACHE_DRIVER=database  # or memory
-```
-
-### Config File
-
-```php
-// config/lararoi.php
-return [
-    'providers' => [
-        'primary' => 'vies',
-        'fallback' => ['abstractapi', 'apilayer'],
-    ],
-    'cache' => [
-        'enabled' => true,
-        'ttl' => 86400,
-        'driver' => 'database',
-    ],
-];
-```
-
-## 🔧 Key Models
-
-### RoiQuery
-
-Stores verification attempts and results:
-
-```php
-use Aichadigital\Lararoi\Models\RoiQuery;
-
-// Recent queries
-$queries = RoiQuery::where('country_code', 'ES')
-    ->where('is_valid', true)
-    ->latest()
-    ->get();
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-composer test
-
-# Run specific tests
-composer test -- --filter=ViesProvider
-
-# Test with real APIs (requires keys)
-php artisan lararoi:test-providers
-```
-
-## ⚠️ Important Conventions
-
-### VAT Number Format
-
-Always pass VAT numbers **without country prefix**:
-
-```php
-// ✅ Correct
-$service->verifyVatNumber('B12345678', 'ES');
-
-// ❌ Wrong
-$service->verifyVatNumber('ESB12345678', 'ES');
-```
-
-### Caching Strategy
-
-- Valid results: cached for 24 hours (configurable)
-- Invalid results: cached for 1 hour
-- Errors: not cached (retry allowed)
-
-### Error Handling
-
-```php
-try {
-    $result = $service->verifyVatNumber($vat, $country);
-} catch (VatVerificationException $e) {
-    // Provider error - may retry
-    Log::warning('VAT verification failed', ['error' => $e->getMessage()]);
-}
-```
-
-## 🚫 Anti-Patterns
-
-**DON'T**:
-- ❌ Include country prefix in VAT number
-- ❌ Skip caching in production
-- ❌ Ignore provider errors
-- ❌ Call VIES too frequently (rate limits)
-
-**DO**:
-- ✅ Use the service interface (not providers directly)
-- ✅ Handle verification failures gracefully
-- ✅ Cache results appropriately
-- ✅ Log verification attempts for audit
-
-## 📚 Key Documentation
-
-| File | Purpose |
-|------|---------|
-| `docs/project.md` | API documentation (VIES, providers) |
-| `docs/configuration.md` | Configuration guide |
-| `docs/usage.md` | Usage examples |
-| `docs/integration.md` | Integration with other packages |
-| `CHANGELOG.md` | Version history |
-
-## 🎯 Integration with Larabill
-
-When used with Larabill, verification happens automatically:
-
-```php
-// In Larabill's UserTaxProfile
-$profile = UserTaxProfile::create([
-    'tax_code' => 'B12345678',
-    'country' => 'ES',
-]);
-
-// Lararoi verifies automatically via event listener
-```
-
----
-
-**Remember**: This package handles EU compliance verification. Cache results appropriately and handle provider failures gracefully. Target: v1.0 stable by December 15, 2025.
-
+| Package | `aichadigital/lararoi` (Packagist, public) |
+| Version | v1.0.1 |
+| License | **MIT** |
+| PHP | `^8.3` |
+| Laravel | 12+ (`illuminate/* ^12.0 \|\| ^13.0`) |
+| Testing / quality | Pest, PHPStan level 5, Laravel Pint |
+
+## Architecture (the real one)
+
+The five responsibilities lararoi owns (ADR-001):
+
+1. **Verification** — `verifyVatNumber(vat, country)` over a multi-provider
+   manager with **automatic fallback** and per-country **syntax validation**
+   (`Support/VatFormat`), returning a canonical array.
+2. **Cache** — table `roi_vat_verifications`: one current row per
+   `(vat_code, country_code)`, TTL (default `86400`s), enforced by a UNIQUE key.
+   It is a cache, **not** a history.
+3. **Multi-consumer tracking / audit log** — table `roi_verification_queries`:
+   append-only, consumer-attributed. **Inert by default** (`tracking.enabled`
+   defaults to `false`).
+4. **Output agnosticism** — an optional per-consumer mapper
+   (`VerificationResultMapperInterface`), applied at the consumer's own boundary,
+   **never** inside `verifyVatNumber()` (which always returns the canonical array).
+5. **Contracts** — the documented, stable contract set (below).
+
+Schema is **package-managed**: run `php artisan migrate`. There is no stub to publish.
+
+### Providers (real set — no others exist)
+
+- **Free:** `vies_soap` (VIES SOAP, official EU), `vies_rest` (VIES REST,
+  unofficial), `isvat` (isvat.eu).
+- **Paid:** `viesapi` (viesapi.eu), `vatlayer` (vatlayer.com).
+
+Order is set by `providers_order` (default `['vies_soap', 'vies_rest', 'isvat']`).
+Paid providers register only when enabled **and** an API key is present. There is
+**no** `AbstractAPI` or `APILayer` provider (vatlayer.com happens to be operated
+by APILayer, but the lararoi provider key is `vatlayer`).
+
+## Configuration (real keys — `config/lararoi.php`)
+
+- `cache.enabled` (env `CACHE_ENABLED`), `cache.ttl` (`CACHE_TTL`)
+- `timeout` (`API_TIMEOUT`)
+- `providers_order` (`PROVIDERS_ORDER`, comma-separated)
+- `vies.test_mode` (`VIES_TEST_MODE`)
+- `provider_config.vatlayer.{enabled,api_key}`,
+  `provider_config.viesapi.{enabled,api_key,api_secret,ip}`,
+  `provider_config.isvat.use_live`
+- `models.vat_verification.class` (`VAT_VERIFICATION_MODEL`),
+  `models.verification_query.class` (`VERIFICATION_QUERY_MODEL`)
+- `tracking.enabled` (`LARAROI_TRACKING_ENABLED`, default `false`)
+- `consumers.<key>.{retention_days, mapper}` — the retention allow-list (config-only)
+
+There is **no** `LARAROI_PRIMARY_PROVIDER`, **no** `providers.primary` /
+`providers.fallback`, and **no** `cache.driver`.
+
+## Contracts, models, exceptions (real)
+
+Namespaces: `Aichadigital\Lararoi\{Contracts, ValueObjects, Exceptions, Models,
+Services, Providers}`.
+
+Contract set — **6 interfaces + 1 value object** (full signatures in `contracts.md`):
+
+- `VatVerificationServiceInterface` —
+  `verifyVatNumber(string $vatNumber, string $countryCode, ?VerificationContext $context = null): array`.
+  The VAT number is passed **without** the country prefix. Bound in the container.
+- `VatProviderInterface` — implemented by each provider.
+- `VatVerificationModelInterface` — the cache model (default `Models\VatVerification`
+  → `roi_vat_verifications`).
+- `VerificationTrackerInterface` — the tracking/audit contract (default
+  `Services\VerificationTracker`).
+- `VerificationQueryModelInterface` — the tracking model (default
+  `Models\VerificationQuery` → `roi_verification_queries`).
+- `VerificationResultMapperInterface` — resolved via
+  `Services\VerificationResultMapperRegistry` (default: identity mapper).
+- `VerificationContext` (value object) — `{consumer, subjectReference}`.
+
+Exceptions: `VatVerificationException` (base; `getErrorCode()`, `getApiSource()`),
+`ApiUnavailableException` (extends it; every provider failed),
+`TrackingDisabledException`, `UnknownConsumerException`.
+
+Models: **`VatVerification`**, **`VerificationQuery`**. There is **no** `RoiQuery`
+(that was larabill's now-removed duplicate — see ADR-001).
+
+## Key commands (real signatures)
+
+- `php artisan lararoi:verify` — interactive verification
+  (`--provider`, `--vat`, `--country`, `--name`)
+- `php artisan roi:prune-verification-queries` — delete expired tracking rows
+  (only rows whose `retention_until` has passed, UTC)
+- `php artisan lararoi:dev:list-providers` — list providers and availability
+- `php artisan lararoi:dev:test-provider <vat> <country> [provider] [--all] [--json]`
+  — hit a real provider (development only)
+- `php artisan lararoi:dev:test-from-file [--file=]` — verify VATs from a file
+  (development only)
+- `php artisan lararoi:dev:generate-stubs` — capture real API responses as test
+  stubs (development only)
+
+## Conventions and anti-patterns
+
+**DO:**
+
+- Pass the VAT **without** the country prefix:
+  `verifyVatNumber('B12345678', 'ES')` — not `'ESB12345678'`.
+- Resolve the service via its interface:
+  `app(VatVerificationServiceInterface::class)`.
+- Handle results/failures: a syntactically malformed number returns
+  `is_valid = false` with `api_source = 'LOCAL_VALIDATION'` (no throw); empty
+  input throws `VatVerificationException` (`getErrorCode() === 'INVALID_INPUT'`);
+  every provider failing throws `ApiUnavailableException`.
+
+**DON'T:**
+
+- Invent config or providers — no primary/fallback split, no
+  `AbstractAPI`/`APILayer`, no `cache.driver`.
+- Create your own `vat_verifications` / `verification_queries` tables, or
+  re-implement caching / fallback / audit — consume the contracts (see
+  `integration.md`).
+- Claim larabill auto-verifies via an event listener. **larabill does not consume
+  lararoi yet** (adoption is pending — larabill AID-309). larabill is the
+  *intended first consumer*, not a current one; there is no automatic
+  verification hook.
+
+## Pointers (source of truth)
+
+| Path | What it is |
+|------|-----------|
+| `docs/adr/ADR-001-verification-domain-ownership.md` | Domain ownership decision |
+| `docs/adr/ADR-002-v1-domain-owner-design.md` | v1.0 design (schema, tracking, contracts) |
+| `docs/integration.md` | Full consumer flow: install → verify → track → retain → map |
+| `docs/contracts.md` | Every contract signature |
+| `docs/configuration.md` | Every config key and env var |
+| `docs/usage.md` | Usage patterns and examples |
+| `docs/development.md` | Development commands, testing against real APIs |
+| `docs/project.md` | Background research on the VAT-verification landscape (VIES + providers) — **not** the package API |
+| `README.md`, `CHANGELOG.md` | Overview and version history |
