@@ -4,12 +4,37 @@ All notable changes to `lararoi` will be documented in this file.
 
 ## [Unreleased]
 
-### Changed
-- **Migration is now package-managed** (auto-loaded on `php artisan migrate`) instead of being published from a `.stub`. `create_vat_verifications_table.php.stub` becomes a timestamped `2025_01_01_000001_create_vat_verifications_table.php`, and the service provider registers it via `hasMigrations()` instead of `hasMigration()`. Schema is now provided by the package with 0 stubs, matching the umbrella reference (laratickets/lara-verifactu). Custom model / primary key support (bring-your-own-model) is unaffected.
-- Test suite discovers migrations automatically: `TestCase` uses `RefreshDatabase` + `afterResolving('migrator')` on the migrations directory, dropping the hardcoded `include ... ->up()`. A new migration is now picked up without editing the test setup.
+## [v1.0.0] - 2026-07-03
 
-### Breaking (installation contract)
-- Consumers no longer obtain the schema via `vendor:publish` of a migration stub; the `vat_verifications` table is created by running `php artisan migrate` against the package-provided migration.
+lararoi is now the single owner of the intra-community VAT/NIF verification domain — verification, cache, **and** multi-consumer tracking/audit — served to consumers through explicit, stable contracts and agnostic configuration (ADR-001, ADR-002). This is the first release consumers can pin to a real contract.
+
+### Added
+- **Multi-consumer tracking / audit log** (ADR-002 D3–D5): a new append-only `roi_verification_queries` table recording who verified what and when, attributed to the consumer, kept separate from the cache. Inert by default (`tracking.enabled` = `false`).
+  - `VerificationContext` value object (`consumer` + opaque `subjectReference`).
+  - `VerificationTrackerInterface` (+ default `VerificationTracker`): `record()` / `tryRecord()` and consumer-scoped reads `forSubject()` / `forVat()` / `between()`.
+  - Optional third argument on `VatVerificationServiceInterface::verifyVatNumber($vat, $country, ?VerificationContext $ctx = null)` to record inline.
+  - Consumer allow-list registry (`lararoi.consumers`): an unregistered consumer throws `UnknownConsumerException`; `record()` on a disabled tracker throws `TrackingDisabledException`.
+  - Per-consumer retention (`retention_days`, UTC; `null` = keep forever) + the `roi:prune-verification-queries` command.
+  - `VerificationQueryModelInterface` for a swappable tracking model.
+- **Per-consumer output mapping** (ADR-002 D6): `VerificationResultMapperInterface` + `VerificationResultMapperRegistry` (config- or code-registered, identity default). Never applied inside `verifyVatNumber()` — the service's canonical `array` return stays stable.
+- Formal, documented contract set (`docs/contracts.md`) and a full integration guide (`docs/integration.md`).
+
+### Changed
+- **Schema ownership** (ADR-002 D1/D2): the cache table is renamed `vat_verifications` → `roi_vat_verifications` via a new migration, with a UNIQUE `(vat_code, country_code)` index and an atomic upsert in `persistVerification()`. lararoi owns its tables under a `roi_` prefix; consumers must not create their own.
+- Cache TTL now reads a single source, `lararoi.cache.ttl` (ADR-002 D8); the model no longer silently ignored a consumer-configured TTL.
+- Migration is package-managed (auto-loaded on `php artisan migrate`), 0 stubs; the test suite discovers migrations via `RefreshDatabase` + `afterResolving('migrator')` (AID-301).
+
+### Removed
+- Dead config keys: `models.vat_verification.primary_key`, `models.vat_verification.foreign_key`, `logging.enabled`, `logging.level`. The audit trail is the tracking log, not Laravel logs.
+- `SoftDeletes` on the cache model (incompatible with the UNIQUE cache key).
+
+### Breaking
+- `VatVerificationServiceInterface::verifyVatNumber()` gains an optional third parameter — a change for any alternate implementer / mock (callers are unaffected).
+- Consumers obtain the schema by running `php artisan migrate` (package-managed), not by publishing a stub; the cache table is now `roi_vat_verifications`.
+- The removed config keys above.
+
+### Documentation
+- Replaced the historical extraction analysis in `docs/integration.md` with an accurate guide; swept `configuration.md` / `usage.md` of the removed keys and the old table name; added `docs/contracts.md`.
 
 ## [v0.2.0] - 2025-11-16
 
