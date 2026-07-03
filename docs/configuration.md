@@ -1,6 +1,8 @@
 # Lararoi Configuration
 
-Complete configuration guide for the Lararoi package.
+Complete configuration guide for the Lararoi package. For the end-to-end consumer
+flow see `integration.md`; for usage examples see `usage.md`; for every contract
+signature see `contracts.md`.
 
 ## Environment Variables
 
@@ -34,15 +36,22 @@ CACHE_TTL=86400
 
 ### Model Configuration
 
-You can swap in your own model (e.g. one with a UUID primary key). It must implement `VatVerificationModelInterface`:
+Both models lararoi owns are swappable. The **cache** model must implement
+`VatVerificationModelInterface`; the **tracking** model must implement
+`VerificationQueryModelInterface`. A consumer that needs a different store swaps
+the model here instead of renaming lararoi's tables (the table names are fixed).
 
 ```env
-# Custom model class (must implement VatVerificationModelInterface)
+# Cache model (must implement VatVerificationModelInterface)
 # Default: \Aichadigital\Lararoi\Models\VatVerification::class
 # VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
+
+# Tracking model (must implement VerificationQueryModelInterface)
+# Default: \Aichadigital\Lararoi\Models\VerificationQuery::class
+# VERIFICATION_QUERY_MODEL=\App\Models\CustomVerificationQuery::class
 ```
 
-**Example: Custom Model**
+**Example:**
 
 ```php
 // config/lararoi.php
@@ -50,8 +59,56 @@ You can swap in your own model (e.g. one with a UUID primary key). It must imple
     'vat_verification' => [
         'class' => \App\Models\CustomVatVerification::class,
     ],
+    'verification_query' => [
+        'class' => \App\Models\CustomVerificationQuery::class,
+    ],
 ],
 ```
+
+### Tracking & Retention
+
+lararoi can keep an append-only audit log of "who verified what, when"
+(`roi_verification_queries`). It is **inert by default** — a row is written only
+when tracking is enabled **and** a `VerificationContext` is supplied (or via an
+explicit `VerificationTrackerInterface::record()` call). See `integration.md` for
+the full flow.
+
+```env
+# Tracking kill-switch (default: false). With it off, nothing is recorded.
+LARAROI_TRACKING_ENABLED=false
+```
+
+When tracking is on, `lararoi.consumers` is a **mandatory allow-list** keyed by
+consumer id. Recording for a consumer that is not listed throws
+`UnknownConsumerException` (closing the typo hole). Each entry declares
+`retention_days` and may declare an optional `mapper`:
+
+```php
+// config/lararoi.php
+'tracking' => [
+    'enabled' => env('LARAROI_TRACKING_ENABLED', false),
+],
+'consumers' => [
+    // retention_days: number → retention_until = queried_at + days (UTC);
+    //                 null   → conscious "keep forever" (never auto-pruned).
+    'larabill' => [
+        'retention_days' => 2555,                          // ~7 years
+        'mapper' => \App\Lararoi\LarabillVatMapper::class,  // optional (ADR-002 D6)
+    ],
+    'archivist' => [
+        'retention_days' => null,                          // keep forever
+    ],
+],
+```
+
+- **`retention_days`** governs the `roi:prune-verification-queries` command,
+  which deletes only rows whose `retention_until` is set and has passed (UTC);
+  `null`-retention rows are never touched.
+- **`mapper`** (optional) is a class implementing
+  `VerificationResultMapperInterface` that transforms the canonical result into
+  the consumer's own shape. It is a separate, consumer-invoked transform resolved
+  via `VerificationResultMapperRegistry::mapperFor()` — **never** applied inside
+  `verifyVatNumber()`. Absent → the identity mapper (canonical shape unchanged).
 
 ### General Configuration
 
@@ -243,6 +300,14 @@ ISVAT_USE_LIVE=false
 # Model Configuration (Optional)
 # ============================================
 # VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
+# VERIFICATION_QUERY_MODEL=\App\Models\CustomVerificationQuery::class
+
+# ============================================
+# Tracking / Audit (Optional, off by default)
+# ============================================
+LARAROI_TRACKING_ENABLED=false
+# Consumers (allow-list) + retention/mapper are config-only (config/lararoi.php),
+# not env — see "Tracking & Retention" above.
 
 # ============================================
 # Generic Certificate (shared between packages)
@@ -269,6 +334,6 @@ If a provider shows "Not available":
 
 ### Provider order not respected
 
-- Verify `LARAROI_PROVIDERS_ORDER` is correctly configured
+- Verify `PROVIDERS_ORDER` is correctly configured
 - Names must match exactly: `vies_rest`, `vies_soap`, etc.
 - Separate by commas without spaces: `vies_rest,vies_soap` (not `vies_rest, vies_soap`)
