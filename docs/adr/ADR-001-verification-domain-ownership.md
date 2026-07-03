@@ -1,6 +1,6 @@
 # ADR-001: lararoi owns the intra-community VAT/NIF verification domain (verification + multi-consumer tracking + agnostic contracts)
 
-> **Status**: Proposed
+> **Status**: Accepted
 > **Date**: 2026-07-03
 > **Author**: Abdelkarim Mateos
 > **Relates**: larabill AID-309 (consumer that must adopt lararoi), lararoi AID-263 (canonical output shape + syntax validation), lararoi AID-301 (package-managed schema). This is lararoi's first ADR and sets the domain contract every consumer depends on.
@@ -39,7 +39,7 @@ lararoi must own and offer, and consumers rely on, these five responsibilities:
 ## Boundary between lararoi and its consumers
 
 - **lararoi owns:** the verification, the providers/fallback, the cache, the **tracking/audit log** (the store of record for "who verified what, when"), and the **contracts + config** that make it agnostic. lararoi owns the `vat_verifications` schema and any tracking table; **consumers do not create their own verification/tracking tables.**
-- **The consumer owns:** *when* to verify (its own trigger), and *how* the result maps into its own domain. Crucially, **not every consumer verifies inline** — larabill today receives `is_roi_taxed` as an input and performs no live verification. So the architecture must NOT assume consumers verify at a fixed point; each consumer chooses to (a) call lararoi to verify at some trigger, and/or (b) simply read/record tracking. lararoi offers the capability; the consumer decides the trigger.
+- **The consumer owns:** *when* to verify (its own trigger), and *how* the result maps into its own domain. Crucially, **not every consumer verifies inline** — larabill today receives `is_roi_taxed` as an input and performs no live verification. So the architecture must NOT assume consumers verify at a fixed point; each consumer chooses to (a) call lararoi to verify at some trigger, and/or (b) simply read tracking. lararoi offers the capability; the consumer decides the trigger. **Tracking records real verification results only; consumer business assertions such as `is_roi_taxed` remain outside lararoi's verification log** — a consumer that never performs a verification simply has no tracking rows; recording an asserted-but-unverified status is a consumer-side business audit concern, a different domain (see ADR-002, R1).
 - **Legal retention is the consumer's policy, lararoi's storage.** How many years a query must be retained is a fiscal obligation of the *consumer* (the issuer). So the consumer **declares its retention policy via config**, and lararoi's tracking log stores/enforces it. lararoi provides a sensible default; the consumer overrides. (Neither package captures the official VIES `requestIdentifier` today — if a legally-binding consultation proof is ever required, that is a provider-level enhancement in lararoi, offered to all consumers, not a per-consumer reinvention.)
 
 ## Current state vs. target (gap analysis)
