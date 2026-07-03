@@ -5,7 +5,6 @@ namespace Aichadigital\Lararoi\Models;
 use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
@@ -16,9 +15,7 @@ use Illuminate\Support\Carbon;
  */
 class VatVerification extends Model implements VatVerificationModelInterface
 {
-    use SoftDeletes;
-
-    protected $table = 'vat_verifications';
+    protected $table = 'roi_vat_verifications';
 
     protected $fillable = [
         'vat_code',

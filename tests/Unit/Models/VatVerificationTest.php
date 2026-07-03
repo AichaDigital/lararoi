@@ -1,7 +1,9 @@
 <?php
 
 use Aichadigital\Lararoi\Models\VatVerification;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 describe('VatVerification Model - Basic Properties', function () {
     it('can create a VAT verification record', function () {
@@ -290,22 +292,13 @@ describe('VatVerification Model - Scopes', function () {
     });
 });
 
-describe('VatVerification Model - Soft Deletes', function () {
-    it('soft deletes verification', function () {
-        $verification = VatVerification::create([
-            'vat_code' => 'B12345678',
-            'country_code' => 'ES',
-            'is_valid' => true,
-            'verified_at' => now(),
-        ]);
-
-        $verification->delete();
-
-        expect(VatVerification::find($verification->id))->toBeNull();
-        expect(VatVerification::withTrashed()->find($verification->id))->not->toBeNull();
+describe('VatVerification Model - Schema Ownership (ADR-002 D1)', function () {
+    it('uses the roi_ prefixed table', function () {
+        expect((new VatVerification)->getTable())->toBe('roi_vat_verifications');
+        expect(Schema::hasTable('roi_vat_verifications'))->toBeTrue();
     });
 
-    it('can restore soft deleted verification', function () {
+    it('no longer uses soft deletes', function () {
         $verification = VatVerification::create([
             'vat_code' => 'B12345678',
             'country_code' => 'ES',
@@ -314,8 +307,50 @@ describe('VatVerification Model - Soft Deletes', function () {
         ]);
 
         $verification->delete();
-        $verification->restore();
 
-        expect(VatVerification::find($verification->id))->not->toBeNull();
+        // A hard delete: the row is gone, not merely flagged.
+        expect(VatVerification::find($verification->id))->toBeNull();
+        expect(Schema::hasColumn('roi_vat_verifications', 'deleted_at'))->toBeFalse();
+    });
+
+    it('drops the unused checked_at and expires_at columns', function () {
+        expect(Schema::hasColumn('roi_vat_verifications', 'checked_at'))->toBeFalse();
+        expect(Schema::hasColumn('roi_vat_verifications', 'expires_at'))->toBeFalse();
+    });
+
+    it('enforces a UNIQUE (vat_code, country_code) at the database level', function () {
+        VatVerification::create([
+            'vat_code' => 'ESB12345678',
+            'country_code' => 'ES',
+            'is_valid' => true,
+            'verified_at' => now(),
+        ]);
+
+        expect(fn () => VatVerification::create([
+            'vat_code' => 'ESB12345678',
+            'country_code' => 'ES',
+            'is_valid' => false,
+            'verified_at' => now(),
+        ]))->toThrow(QueryException::class);
+    });
+
+    it('has a reversible rename migration', function () {
+        $migration = require __DIR__.'/../../../database/migrations/2026_07_03_000001_rename_vat_verifications_to_roi.php';
+
+        // down(): roi_vat_verifications -> vat_verifications, columns + plain index restored.
+        $migration->down();
+
+        expect(Schema::hasTable('roi_vat_verifications'))->toBeFalse();
+        expect(Schema::hasTable('vat_verifications'))->toBeTrue();
+        expect(Schema::hasColumn('vat_verifications', 'deleted_at'))->toBeTrue();
+        expect(Schema::hasColumn('vat_verifications', 'checked_at'))->toBeTrue();
+        expect(Schema::hasColumn('vat_verifications', 'expires_at'))->toBeTrue();
+
+        // up() again: back to the owned roi_ shape (no dropped columns).
+        $migration->up();
+
+        expect(Schema::hasTable('roi_vat_verifications'))->toBeTrue();
+        expect(Schema::hasTable('vat_verifications'))->toBeFalse();
+        expect(Schema::hasColumn('roi_vat_verifications', 'deleted_at'))->toBeFalse();
     });
 });
