@@ -1,11 +1,20 @@
 # APIs y Servicios para Verificación de NIF-IVA Intracomunitario
 
-**Última actualización:** Noviembre 2025
+> **Nota de alcance.** Este documento es material de referencia sobre el
+> *panorama* de APIs y servicios de verificación de NIF-IVA intracomunitario
+> (VIES y terceros). **No** es la documentación de la API del paquete lararoi.
+> De los servicios aquí descritos, lararoi implementa cinco proveedores con
+> fallback automático: `vies_soap`, `vies_rest`, `isvat`, `viesapi` y
+> `vatlayer`. El web service de la AEAT (VNifV2) y Vatstack se recogen como
+> contexto del panorama, **no** son proveedores incluidos en el paquete. Para
+> la API propia de lararoi, ver `contracts.md`, `usage.md`, `integration.md` y
+> `configuration.md`.
 
 ## Índice
 
 1. [Introducción](#introducción)
 2. [VIES - Comisión Europea (Servicios Oficiales)](#vies---comisión-europea-servicios-oficiales)
+3. [AEAT - Agencia Tributaria (España)](#aeat---agencia-tributaria-españa)
 4. [Servicios de Terceros](#servicios-de-terceros)
 5. [Comparativa y Recomendaciones](#comparativa-y-recomendaciones)
 6. [Ejemplos de Implementación](#ejemplos-de-implementación)
@@ -210,6 +219,10 @@ Permite consultas manuales individuales sin necesidad de API.
 
 ---
 
+## AEAT - Agencia Tributaria (España)
+
+> Solo NIF españoles. **No** es un proveedor incluido en lararoi; se documenta
+> como contexto del panorama.
 
 ### 1. Web Service de Calidad de Datos Identificativos
 
@@ -1118,6 +1131,8 @@ if (!isValidFormat('ES', 'B12345678')) {
 - FAQ: https://ec.europa.eu/taxation_customs/vies/faq.html
 - Información técnica: https://ec.europa.eu/taxation_customs/vies/technicalInformation.html
 
+**Agencia Tributaria (España):**
+
 - Servicios Web: https://sede.agenciatributaria.gob.es/
 - Manual WS: https://sede.agenciatributaria.gob.es/static_files/Sede/Biblioteca/Manual/Tecnicos/WS/
 
@@ -1169,6 +1184,5 @@ if (!isValidFormat('ES', 'B12345678')) {
 
 ---
 
-**Documento creado:** Noviembre 2025  
-**Autor:** Investigación sobre APIs VAT/NIF-IVA  
-**Versión:** 1.0
+**Autor:** Investigación sobre APIs VAT/NIF-IVA (material de referencia)
+**Revisión del documento:** 2 (revisado para lararoi v1.0.1; no es la versión del paquete)
