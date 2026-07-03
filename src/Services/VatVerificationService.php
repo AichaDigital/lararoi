@@ -273,7 +273,7 @@ class VatVerificationService implements VatVerificationServiceInterface
      */
     protected function isCacheExpired(array $cached): bool
     {
-        $ttl = $this->config['cache']['ttl'] ?? $this->config['cache_ttl'] ?? 86400; // Support both old and new config
+        $ttl = $this->config['cache']['ttl'] ?? 86400;
         $cachedAt = $cached['cached_at'] ?? 0;
 
         return time() - $cachedAt > $ttl;
@@ -284,7 +284,7 @@ class VatVerificationService implements VatVerificationServiceInterface
      */
     protected function updateCache(string $key, array $data): void
     {
-        $ttl = $this->config['cache']['ttl'] ?? $this->config['cache_ttl'] ?? 86400; // Support both old and new config
+        $ttl = $this->config['cache']['ttl'] ?? 86400;
         $data['cached_at'] = time();
 
         Cache::put($key, $data, $ttl);

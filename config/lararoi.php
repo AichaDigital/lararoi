@@ -140,20 +140,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configuration for the VAT verification model.
-    | Allows full customization for integration with your application.
     |
-    | You can:
-    | - Use the default model or specify your own custom model class
-    | - Customize the primary key field name (e.g., 'id', 'uuid', 'ulid')
-    | - Customize the foreign key name for relationships (e.g., 'vat_verification_id', 'custom_vat_id')
+    | Supply your own model via VAT_VERIFICATION_MODEL (or the 'class' key);
+    | it must implement VatVerificationModelInterface.
     |
-    | Example for custom model with UUID:
+    | Example:
     | 'models' => [
-    |     'vat_verification' => [
-    |         'class' => \App\Models\CustomVatVerification::class,
-    |         'primary_key' => 'uuid',
-    |         'foreign_key' => 'custom_vat_uuid',
-    |     ],
+    |     'vat_verification' => ['class' => \App\Models\CustomVatVerification::class],
     | ],
     |
     */
@@ -161,45 +154,7 @@ return [
         'vat_verification' => [
             // Model class to use (must implement VatVerificationModelInterface)
             'class' => env('VAT_VERIFICATION_MODEL', VatVerification::class),
-
-            // Primary key column name (for the vat_verifications table)
-            'primary_key' => env('VAT_VERIFICATION_PRIMARY_KEY', 'id'),
-
-            // Foreign key name for relationships (e.g., in customers table)
-            // Format: {table}_{column} following Laravel conventions
-            'foreign_key' => env('VAT_VERIFICATION_FOREIGN_KEY', 'vat_verification_id'),
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Logging
-    |--------------------------------------------------------------------------
-    |
-    | Logging configuration for VAT verifications.
-    |
-    */
-    'logging' => [
-        /*
-        |--------------------------------------------------------------------------
-        | Enable Logging
-        |--------------------------------------------------------------------------
-        |
-        | If enabled, all VAT verifications will be logged
-        | in Laravel logs. Useful for auditing and debugging.
-        |
-        */
-        'enabled' => env('LOGGING_ENABLED', true),
-
-        /*
-        |--------------------------------------------------------------------------
-        | Log Level
-        |--------------------------------------------------------------------------
-        |
-        | Logging level for verifications.
-        | Options: 'debug', 'info', 'warning', 'error'
-        |
-        */
-        'level' => env('LOGGING_LEVEL', 'info'),
-    ],
 ];

@@ -1,209 +1,95 @@
-## Analysis: what to remove, what to keep and how to couple
+# Integrating lararoi
 
-Main package that will use this package: `aichadigital/larabill` located at `/Users/abkrim/development/packages/aichadigital/larabill`
+lararoi verifies intra-community VAT/NIF numbers against multiple providers (VIES SOAP/REST, isvat, viesapi, vatlayer) with automatic fallback, per-country syntax validation, and a TTL cache. This guide covers the surface that exists today. The v1.0 additions (a multi-consumer tracking/audit log, per-consumer retention, and output mapping) are designed in `docs/adr/ADR-002-v1-domain-owner-design.md` and land before the `v1.0.0` tag — see "Roadmap" at the end. Do **not** build your own verification or tracking layer; consume lararoi's.
 
-### 1. Code to remove/move to ROI/VAT package
+## Install
 
-#### Services (move completely)
-- `src/Services/VatVerificationService.php` → Move to ROI package
-- `src/Services/VatApiIntegrationService.php` → Move to ROI package
+```bash
+composer require aichadigital/lararoi
+```
 
-#### Model (decisions)
-- `src/Models/VatVerification.php` → Options:
-  - Option A: Move to ROI package (recommended)
-  - Option B: Keep in Larabill as "proxy" that uses ROI package
+The schema is package-managed (no stubs to publish). Run migrations to create the cache table:
 
-#### Migration
-- `database/migrations/2024_12_01_000007_create_vat_verifications_table.php` → Move to ROI package
+```bash
+php artisan migrate
+```
 
-#### Configuration (partial)
-- `config/larabill.php` → `vat_apis` section → Move to ROI package
+Publish the config if you want to tune providers/cache:
 
-#### Related tests
-- `tests/Unit/Services/VatVerificationService*.php` → Move to ROI package
-- `tests/Unit/Services/VatApiIntegrationServiceTest.php` → Move to ROI package
-- `tests/Integration/VatVerificationIntegrationTest.php` → Move to ROI package
-- `tests/Unit/Models/VatVerificationTest.php` → Move to ROI package
+```bash
+php artisan vendor:publish --tag=lararoi-config
+```
 
----
+## Verify a VAT number
 
-### 2. Code to keep in Larabill
-
-#### Services (specific business logic)
-- `src/Services/RoiVerificationService.php` → Keep (uses VAT but is Larabill ROI logic)
-- `src/Services/BillingService.php` → Keep (uses ROI, not VAT directly)
-- `src/Services/CacheService.php` → Keep (ROI specific methods)
-
-#### Relationships (adapt)
-- `src/Models/UserTaxProfile::vatVerification()` → Adapt to use ROI package
-- `src/Models/Invoice::$vat_verification` (JSON field) → Keep (storage only)
-
-#### Configuration (keep)
-- `config/larabill.php` → `models.vat_verification` section → Change to ROI package binding
-- `config/larabill.php` → Rest of configuration
-
----
-
-### 3. Coupling architecture
-
-#### Interface that ROI package must implement
+Resolve the service from the container and call `verifyVatNumber($vatNumber, $countryCode)` — the VAT number is passed **without** the country prefix:
 
 ```php
-// In ROI package (public contract)
-interface VatVerificationServiceInterface
-{
-    /**
-     * Verify a VAT number
-     * 
-     * @return array{
-     *     is_valid: bool,
-     *     vat_code: string,
-     *     country_code: string,
-     *     company_name: string|null,
-     *     company_address: string|null,
-     *     api_source: string,
-     *     cached: bool,
-     *     response_data?: array
-     * }
-     */
-    public function verifyVatNumber(string $vatNumber, string $countryCode): array;
-}
+use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
+
+$result = app(VatVerificationServiceInterface::class)
+    ->verifyVatNumber('B12345678', 'ES');
 ```
 
-#### Model that ROI package must expose
+### Canonical result
+
+`verifyVatNumber()` returns an array. These fields are the stable contract:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `is_valid` | `bool` | Whether the VAT number is valid |
+| `vat_code` | `string` | Full code with country prefix (e.g. `ESB12345678`) |
+| `country_code` | `string` | Two-letter country code |
+| `company_name` | `string\|null` | Registered name, when the provider returns it |
+| `company_address` | `string\|null` | Registered address, when available |
+| `api_source` | `string` | Which provider answered (or `LOCAL_VALIDATION` for a syntax rejection) |
+| `request_date` | `string\|null` | Provider timestamp, when available |
+| `cached` | `bool` | `true` when served from cache |
+| `cache_status` | `string` | `fresh`, `cached`, or `refreshed` |
+| `response_data` | `array` | The underlying data snapshot |
+
+Obviously malformed numbers for known countries are rejected locally (no provider call) with `api_source = LOCAL_VALIDATION` and `is_valid = false`.
+
+## Configuration
+
+`config/lararoi.php`:
+
+- **`providers_order`** — order providers are tried (env `PROVIDERS_ORDER`, comma-separated). Defaults to VIES first.
+- **`cache.enabled`** — enable the TTL cache (default `true`). Set `false` for the most agnostic, always-live mode.
+- **`cache.ttl`** — cache lifetime in seconds (default `86400`). This is the single source of truth for cache expiry.
+- **`timeout`** — per-provider timeout in seconds (default `15`); a slow provider is skipped for the next in the fallback order.
+- **`vies.test_mode`** — use the VIES test endpoint.
+- **`provider_config`** — per-provider keys: `vatlayer` (`api_key`, `enabled`), `viesapi` (`api_key`, `api_secret`, `ip`, `enabled`), `isvat` (`use_live`). A paid provider registers only when `enabled` **and** an API key is present.
+- **`models.vat_verification.class`** — swap the cache model (see below).
+
+## Swapping the cache model
+
+Supply your own Eloquent model to persist verifications your way. It must implement `VatVerificationModelInterface`:
 
 ```php
-// In ROI package
-interface VatVerificationModelInterface
+use Aichadigital\Lararoi\Contracts\VatVerificationModelInterface;
+
+class MyVatVerification extends Model implements VatVerificationModelInterface
 {
-    public static function findByVatCodeAndCountry(string $vatCode, string $countryCode): ?self;
-    public function isExpired(): bool;
-    // ... other necessary methods
+    // findByVatCodeAndCountry(), isExpired(), getVatCode(), getCountryCode(),
+    // isValid(), getCompanyName(), getCompanyAddress(), getApiSource(),
+    // getVerifiedAt(), getResponseData()
 }
 ```
-
-#### ROI package Service Provider
 
 ```php
-// In ROI package
-class RoiServiceProvider extends ServiceProvider
-{
-    public function register(): void
-    {
-        // Service binding
-        $this->app->singleton(
-            VatVerificationServiceInterface::class,
-            VatVerificationService::class
-        );
-        
-        // Model binding (optional, if Larabill needs it)
-        $this->app->bind(
-            VatVerificationModelInterface::class,
-            VatVerification::class
-        );
-    }
-}
+// config/lararoi.php
+'models' => [
+    'vat_verification' => ['class' => \App\Models\MyVatVerification::class],
+],
 ```
 
-#### Adaptation in Larabill
+## Roadmap (v1.0, ADR-002)
 
-```php
-// src/Services/RoiVerificationService.php (adapted)
-class RoiVerificationService
-{
-    private VatVerificationServiceInterface $vatVerificationService; // ← ROI package interface
-    
-    public function __construct(
-        ?CacheService $cacheService = null,
-        ?VatVerificationServiceInterface $vatVerificationService = null // ← Interface injection
-    ) {
-        $this->cacheService = $cacheService ?? app(CacheService::class);
-        $this->vatVerificationService = $vatVerificationService 
-            ?? app(VatVerificationServiceInterface::class); // ← Resolve from container
-    }
-    
-    // ... rest of code same, only dependency changes
-}
-```
+The following are **designed but not yet shipped**; do not assume they exist against the current tag:
 
-#### Relationship in UserTaxProfile (adapted)
+- **Multi-consumer tracking/audit log** — an append-only record of who verified what and when, attributed to the consumer, separate from the cache.
+- **Per-consumer retention** — each consumer declares its retention policy; lararoi stores and prunes.
+- **Output mapping** — declare how the canonical result maps to your own shape, without forking code.
 
-```php
-// src/Models/UserTaxProfile.php
-public function vatVerification(): HasOne
-{
-    // Option 1: If model is in ROI package
-    $vatVerificationModel = app(VatVerificationModelInterface::class);
-    return $this->hasOne(get_class($vatVerificationModel), 'vat_code', 'tax_code');
-    
-    // Option 2: If you keep a proxy in Larabill
-    return $this->hasOne(VatVerification::class, 'vat_code', 'tax_code');
-}
-```
-
----
-
-### 4. Recommended migration plan
-
-#### Phase 1: Preparation (without breaking anything)
-1. Create `VatVerificationServiceInterface` interface in Larabill (temporary)
-2. Make `VatVerificationService` implement the interface
-3. Update `RoiVerificationService` to use the interface
-4. Tests pass
-
-#### Phase 2: Extraction
-1. Create ROI package with the interface
-2. Move `VatVerificationService`, `VatApiIntegrationService`, `VatVerification` model
-3. ROI package implements the interface
-4. Larabill depends on ROI package
-
-#### Phase 3: Cleanup
-1. Remove duplicate code from Larabill
-2. Update configuration
-3. Update tests
-
----
-
-### 5. Recommended ROI package structure
-
-```
-roi-vat-verification/
-├── src/
-│   ├── Contracts/
-│   │   └── VatVerificationServiceInterface.php
-│   ├── Services/
-│   │   ├── VatVerificationService.php
-│   │   └── VatApiIntegrationService.php
-│   ├── Models/
-│   │   └── VatVerification.php
-│   └── RoiServiceProvider.php
-├── database/
-│   └── migrations/
-│       └── create_vat_verifications_table.php
-└── config/
-    └── roi.php (vat_apis config)
-```
-
----
-
-### 6. Dependencies in composer.json
-
-```json
-// In Larabill
-{
-    "require": {
-        "aichadigital/roi-vat-verification": "^1.0"
-    }
-}
-```
-
----
-
-### Summary
-
-- Remove: `VatVerificationService`, `VatApiIntegrationService`, `vat_verifications` migration, related tests, `vat_apis` config
-- Keep: `RoiVerificationService`, `BillingService`, adapted relationships, general config
-- Coupling: `VatVerificationServiceInterface` interface that ROI package implements, dependency injection, binding in Service Provider
-
-Do you want me to detail any specific part or prepare the interface/contract files?
-
+When these land, this guide expands (ADR-002 PR 5). Until then, the surface above is the whole public contract.

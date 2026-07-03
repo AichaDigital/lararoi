@@ -56,7 +56,7 @@ class VatVerification extends Model implements VatVerificationModelInterface
             return true;
         }
 
-        $ttl = config('lararoi.cache_ttl', 86400); // 24 hours by default
+        $ttl = config('lararoi.cache.ttl', 86400); // 24 hours by default
         $expiresAt = $this->verified_at->addSeconds($ttl);
 
         return now()->isAfter($expiresAt);
@@ -167,7 +167,7 @@ class VatVerification extends Model implements VatVerificationModelInterface
      */
     public function scopeExpired($query)
     {
-        $ttl = config('lararoi.cache_ttl', 86400);
+        $ttl = config('lararoi.cache.ttl', 86400);
         $expirationDate = now()->subSeconds($ttl);
 
         return $query->where('verified_at', '<', $expirationDate);
