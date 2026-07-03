@@ -114,3 +114,32 @@ describe('Inline passive tracking path (ADR-002 D4)', function () {
             ->and(VerificationQuery::count())->toBe(1);
     });
 });
+
+describe('Inline tracking resolves the tracker lazily from the container (ADR-002 D4)', function () {
+    it('records via a container-resolved tracker when none is injected', function () {
+        config()->set('lararoi.tracking.enabled', true);
+        config()->set('lararoi.consumers', ['larabill' => ['retention_days' => 10]]);
+        config()->set('lararoi.cache.enabled', false);
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')
+            ->with('B12345678', 'ES')
+            ->andReturn([
+                'valid' => true,
+                'name' => 'ACME SL',
+                'address' => 'Calle Uno 1',
+                'request_date' => '2026-01-01',
+                'vat_number' => 'B12345678',
+                'country_code' => 'ES',
+                'api_source' => 'VIES_SOAP',
+            ]);
+
+        // No tracker injected: the passive path must lazily resolve
+        // VerificationTrackerInterface from the container (resolveTracker()).
+        $service = new VatVerificationService($manager);
+        $service->verifyVatNumber('B12345678', 'ES', new VerificationContext('larabill', 'invoice-container'));
+
+        expect(VerificationQuery::count())->toBe(1)
+            ->and(VerificationQuery::first()->getConsumer())->toBe('larabill');
+    });
+});

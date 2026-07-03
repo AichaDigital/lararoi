@@ -78,6 +78,38 @@ describe('VerificationTracker - gating (ADR-002 D4/D5)', function () {
     });
 });
 
+describe('VerificationTracker - tryRecord() success path (ADR-002 D4)', function () {
+    it('writes and returns a persisted row when enabled for a registered consumer', function () {
+        $row = tracker()->tryRecord(new VerificationContext('larabill', 'invoice-9'), serviceResult());
+
+        expect($row)->toBeInstanceOf(VerificationQueryModelInterface::class)
+            ->and($row->getConsumer())->toBe('larabill')
+            ->and($row->getSubjectReference())->toBe('invoice-9')
+            ->and($row->getVatCode())->toBe('ESB12345678');
+        expect(VerificationQuery::find($row->getKey()))->not->toBeNull();
+    });
+});
+
+describe('VerificationTracker - resolveModelInstance guards (fail loud on bad config)', function () {
+    it('throws when the configured verification_query model class does not exist', function () {
+        // Array form ('class' key) that points at a non-existent class: the read
+        // path (forSubject -> newQuery -> resolveModelInstance) must fail loudly.
+        config()->set('lararoi.models.verification_query', ['class' => 'Aichadigital\\Lararoi\\Nope\\Missing']);
+
+        expect(fn () => tracker()->forSubject('larabill', 'subj'))
+            ->toThrow(RuntimeException::class);
+    });
+
+    it('throws when the configured verification_query model is not an Eloquent model', function () {
+        // A real, resolvable class that is neither an Eloquent Model nor the
+        // tracking contract trips the second guard.
+        config()->set('lararoi.models.verification_query', stdClass::class);
+
+        expect(fn () => tracker()->forSubject('larabill', 'subj'))
+            ->toThrow(RuntimeException::class);
+    });
+});
+
 describe('VerificationTracker - append-only writes (ADR-002 D3)', function () {
     it('record() inserts a NEW row on every call for the same NIF', function () {
         $context = new VerificationContext('larabill', 'invoice-1');
