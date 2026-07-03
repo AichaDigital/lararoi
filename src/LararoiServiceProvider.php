@@ -40,11 +40,6 @@ class LararoiServiceProvider extends PackageServiceProvider
         $package
             ->name('lararoi')
             ->hasConfigFile()
-            ->hasMigrations([
-                '2025_01_01_000001_create_vat_verifications_table',
-                '2026_07_03_000001_rename_vat_verifications_to_roi',
-                '2026_07_03_000002_create_roi_verification_queries_table',
-            ])
             ->hasCommands([
                 VerifyVatCommand::class,
                 TestVatProviderCommand::class,
@@ -53,6 +48,21 @@ class LararoiServiceProvider extends PackageServiceProvider
                 GenerateStubsCommand::class,
                 PruneVerificationQueriesCommand::class,
             ]);
+
+        // Note: migrations load automatically via loadMigrationsFrom() in boot()
+        // (PACKAGE_DEVELOPMENT_STANDARDS.md). Do NOT use hasMigrations() here:
+        // it only registers migrations for publishing and never feeds the
+        // migrator, so a consumer's `php artisan migrate` would silently skip
+        // the roi_* tables (AID-323).
+    }
+
+    public function boot(): void
+    {
+        parent::boot();
+
+        if ($this->app->runningInConsole()) {
+            $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
+        }
     }
 
     public function packageRegistered(): void
