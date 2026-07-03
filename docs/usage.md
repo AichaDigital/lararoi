@@ -66,18 +66,6 @@ ISVAT_USE_LIVE=false
 # ============================================
 # Custom model class (must implement VatVerificationModelInterface)
 # VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
-
-# Primary key column name
-# VAT_VERIFICATION_PRIMARY_KEY=id
-
-# Foreign key name for relationships
-# VAT_VERIFICATION_FOREIGN_KEY=vat_verification_id
-
-# ============================================
-# Logging
-# ============================================
-LOGGING_ENABLED=true
-LOGGING_LEVEL=info  # Options: debug, info, warning, error
 ```
 
 #### Generic Shared Variables
@@ -207,8 +195,6 @@ class CustomVatVerification extends BaseVatVerification
 'models' => [
     'vat_verification' => [
         'class' => \App\Models\CustomVatVerification::class,
-        'primary_key' => 'uuid',
-        'foreign_key' => 'custom_vat_uuid',
     ],
 ],
 ```
@@ -217,8 +203,6 @@ class CustomVatVerification extends BaseVatVerification
 
 ```env
 VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
-VAT_VERIFICATION_PRIMARY_KEY=uuid
-VAT_VERIFICATION_FOREIGN_KEY=custom_vat_uuid
 ```
 
 #### 4. Customer Model (One-to-One Relationship)
@@ -241,7 +225,7 @@ class Customer extends Model
     {
         return $this->hasOne(
             \App\Models\CustomVatVerification::class,
-            'custom_vat_uuid',  // foreign key in vat_verifications table
+            'custom_vat_uuid',  // foreign key in roi_vat_verifications table
             'uuid'              // local key in customers table
         );
     }
@@ -254,11 +238,11 @@ class Customer extends Model
 Schema::table('customers', function (Blueprint $table) {
     $table->string('vat_number')->nullable();      // Stores the VAT number
     $table->string('vat_country_code', 2)->nullable();
-    $table->uuid('custom_vat_uuid')->nullable();   // FK to vat_verifications
+    $table->uuid('custom_vat_uuid')->nullable();   // FK to roi_vat_verifications
 
     $table->foreign('custom_vat_uuid')
         ->references('uuid')
-        ->on('vat_verifications')
+        ->on('roi_vat_verifications')
         ->nullOnDelete();
 });
 ```
@@ -416,8 +400,7 @@ Or with PHPUnit directly:
 
 2. **Model Customization**:
    - Use your own model class (must implement `VatVerificationModelInterface`)
-   - Custom primary keys supported (UUID, ULID, etc.)
-   - Custom foreign keys for relationships
+   - Your model can use any primary key type (UUID, ULID, etc.)
 
 3. **Fallback System**:
    - If a provider fails, automatically tries the next one
@@ -429,8 +412,7 @@ Or with PHPUnit directly:
    - Can be linked to your customer/client models
 
 5. **Logging**:
-   - All verifications can be logged (configurable)
-   - Levels: debug, info, warning, error
+   - Provider errors and cache activity are written to the Laravel log
 
 6. **Generic Variables**:
    - Certificate and API key variables are shared between packages
