@@ -1,5 +1,10 @@
 # Lararoi Usage Guide
 
+This guide covers day-to-day usage: verifying, reading the result, swapping the
+cache model. For the end-to-end consumer flow including tracking, retention and
+output mapping see `integration.md`; for the full config reference see
+`configuration.md`; for every contract signature see `contracts.md`.
+
 ## Installation
 
 ```bash
@@ -275,31 +280,43 @@ echo $customer->vatVerification->company_address;
 
 ## Error Handling
 
+A **syntactically malformed** VAT number for a known country does **not** throw —
+it returns the canonical result with `is_valid = false` and
+`api_source = 'LOCAL_VALIDATION'`. Exceptions are reserved for real failures:
+
+- **`VatVerificationException`** — base exception; e.g. empty VAT number/country
+  code (`getErrorCode() === 'INVALID_INPUT'`). Carries `getErrorCode()` and
+  `getApiSource()`.
+- **`ApiUnavailableException`** — extends `VatVerificationException`; thrown when
+  every provider in the fallback order fails.
+
 ```php
-use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
 use Aichadigital\Lararoi\Exceptions\VatVerificationException;
-use Aichadigital\Lararoi\Exceptions\InvalidVatFormatException;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 
 try {
     $result = $service->verifyVatNumber('B12345678', 'ES');
-} catch (InvalidVatFormatException $e) {
-    // Invalid format
-    echo "Error: " . $e->getMessage();
 } catch (ApiUnavailableException $e) {
-    // API unavailable
+    // Every provider failed (catch the specific subclass first)
     echo "Error: " . $e->getMessage();
     echo "Code: " . $e->getErrorCode();
     echo "Source: " . $e->getApiSource();
 } catch (VatVerificationException $e) {
-    // Other error
+    // Other verification error (e.g. INVALID_INPUT)
     echo "Error: " . $e->getMessage();
 }
 ```
 
-## Usage from Larabill
+When you opt into tracking (see `integration.md`), the tracking path adds two
+more: `TrackingDisabledException` (explicit `record()` while tracking is off) and
+`UnknownConsumerException` (unregistered consumer while tracking is on). See
+`contracts.md` for their signatures.
 
-The package is designed to be used primarily from Larabill. Larabill can inject the service using the interface:
+## Usage from a consumer
+
+lararoi is designed to be consumed by other packages/apps (larabill is the
+intended first consumer, though it does not depend on lararoi yet). A consumer
+injects the service through its interface and never re-implements verification:
 
 ```php
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
@@ -309,13 +326,16 @@ class RoiVerificationService
     public function __construct(
         private VatVerificationServiceInterface $vatService
     ) {}
-    
+
     public function verifyRoi(string $vatNumber, string $countryCode)
     {
         return $this->vatService->verifyVatNumber($vatNumber, $countryCode);
     }
 }
 ```
+
+To also attribute and audit the verification (per-consumer tracking + retention),
+see the full flow in `integration.md`.
 
 ## Provider Configuration
 
@@ -378,16 +398,10 @@ $spanishVerifications = $model::byCountry('ES')->get();
 
 ## Testing
 
-The package includes basic tests. To run them:
+The package's test suite runs on Pest. To run it:
 
 ```bash
 composer test
-```
-
-Or with PHPUnit directly:
-
-```bash
-./vendor/bin/phpunit
 ```
 
 ## Important Notes
@@ -406,10 +420,14 @@ Or with PHPUnit directly:
    - If a provider fails, automatically tries the next one
    - Configurable provider order
 
-4. **Database Persistence**:
-   - Verifications saved to database (when cache enabled)
-   - Historical record for auditing
-   - Can be linked to your customer/client models
+4. **Database Persistence (cache, not audit)**:
+   - When the cache is enabled, the latest verification is saved to
+     `roi_vat_verifications` — one **current** row per NIF (`vat_code` +
+     `country_code`), overwritten on refresh. This is a cache, not a history.
+   - For an append-only **audit history** ("who verified what, when"), use the
+     tracking log (`roi_verification_queries`) — inert by default, opt-in per
+     consumer. See `integration.md`.
+   - The cache row can be linked to your customer/client models.
 
 5. **Logging**:
    - Provider errors and cache activity are written to the Laravel log
