@@ -34,31 +34,21 @@ CACHE_TTL=86400
 
 ### Model Configuration
 
-You can use your own custom model with custom primary keys:
+You can swap in your own model (e.g. one with a UUID primary key). It must implement `VatVerificationModelInterface`:
 
 ```env
 # Custom model class (must implement VatVerificationModelInterface)
 # Default: \Aichadigital\Lararoi\Models\VatVerification::class
 # VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
-
-# Primary key column name for vat_verifications table
-# Default: id
-# VAT_VERIFICATION_PRIMARY_KEY=uuid
-
-# Foreign key name for relationships (e.g., in customers table)
-# Default: vat_verification_id
-# VAT_VERIFICATION_FOREIGN_KEY=custom_vat_id
 ```
 
-**Example: Custom Model with UUID**
+**Example: Custom Model**
 
 ```php
-// config/lararoi.php or .env
+// config/lararoi.php
 'models' => [
     'vat_verification' => [
         'class' => \App\Models\CustomVatVerification::class,
-        'primary_key' => 'uuid',
-        'foreign_key' => 'custom_vat_uuid',
     ],
 ],
 ```
@@ -75,10 +65,6 @@ VIES_TEST_MODE=false
 # Provider order (comma-separated)
 # Default: vies_soap,vies_rest,isvat
 PROVIDERS_ORDER=vies_soap,vies_rest,isvat
-
-# Logging
-LOGGING_ENABLED=true
-LOGGING_LEVEL=info
 ```
 
 ### Paid Providers
@@ -257,14 +243,6 @@ ISVAT_USE_LIVE=false
 # Model Configuration (Optional)
 # ============================================
 # VAT_VERIFICATION_MODEL=\App\Models\CustomVatVerification::class
-# VAT_VERIFICATION_PRIMARY_KEY=id
-# VAT_VERIFICATION_FOREIGN_KEY=vat_verification_id
-
-# ============================================
-# Logging Configuration
-# ============================================
-LOGGING_ENABLED=true
-LOGGING_LEVEL=info
 
 # ============================================
 # Generic Certificate (shared between packages)
