@@ -1,6 +1,7 @@
 <?php
 
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Exceptions\UnknownConsumerException;
 use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 
 describe('ApiUnavailableException', function () {
@@ -75,5 +76,24 @@ describe('VatVerificationException', function () {
         $exception = new VatVerificationException('Error message');
 
         expect($exception->getErrorCode())->toBe('UNKNOWN');
+    });
+});
+
+describe('UnknownConsumerException', function () {
+    it('contains the offending consumer key in the message', function () {
+        $exception = new UnknownConsumerException('larabil');
+
+        expect($exception->getMessage())->toContain('larabil')
+            ->and($exception->getMessage())->toContain('lararoi.consumers');
+    });
+
+    it('exposes the offending consumer key via getConsumer()', function () {
+        $exception = new UnknownConsumerException('larabil');
+
+        expect($exception->getConsumer())->toBe('larabil');
+    });
+
+    it('is a RuntimeException', function () {
+        expect(new UnknownConsumerException('x'))->toBeInstanceOf(RuntimeException::class);
     });
 });

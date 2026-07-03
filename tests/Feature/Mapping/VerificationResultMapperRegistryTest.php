@@ -38,6 +38,19 @@ class ScalarVatMapper implements VerificationResultMapperInterface
 class NotAMapper {}
 
 /**
+ * A class that IS a mapper by type (so the class-string is_a() check passes) but
+ * is rebound in the container to a non-mapper instance — used to exercise the
+ * defensive runtime instanceof guard that fires after container resolution.
+ */
+class ContainerReboundMapper implements VerificationResultMapperInterface
+{
+    public function map(array $canonical): mixed
+    {
+        return $canonical;
+    }
+}
+
+/**
  * The seven canonical verification facts the mapper receives (D3/D6).
  *
  * @param  array<string, mixed>  $overrides
@@ -116,6 +129,17 @@ describe('VerificationResultMapperRegistry - invalid config throws (ADR-002 D6)'
 
     it('throws when the configured mapper is not a class at all', function () {
         config()->set('lararoi.consumers.acme.mapper', 'not-a-class');
+
+        expect(fn () => mapperRegistry()->mapperFor('acme'))->toThrow(RuntimeException::class);
+    });
+
+    it('throws when the class-string is a mapper but the container resolves a non-mapper', function () {
+        // is_a() validates the class-string (ContainerReboundMapper implements the
+        // interface), so the first guard passes; the container binding then makes
+        // app() return a non-mapper instance, tripping the defensive runtime
+        // instanceof guard that keeps the narrowing honest.
+        config()->set('lararoi.consumers.acme.mapper', ContainerReboundMapper::class);
+        app()->bind(ContainerReboundMapper::class, fn () => new stdClass);
 
         expect(fn () => mapperRegistry()->mapperFor('acme'))->toThrow(RuntimeException::class);
     });
