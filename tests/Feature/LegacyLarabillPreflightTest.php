@@ -213,8 +213,13 @@ it('reads and cleans the ledger through the official migration repository (custo
     // Adversarial P2:75 — deriving the ledger table by hand from config
     // diverges from custom repositories/tenancy. The framework repository is
     // the single source of truth for where the ledger lives.
+    // In a real consumer the custom table is configured before boot, so the
+    // migrator resolves with the right repository from the start. Simulate
+    // that by forgetting both singletons AFTER mutating config —
+    // RefreshDatabase already resolved them against the default table.
     config()->set('database.migrations.table', 'custom_migration_ledger');
     app()->forgetInstance('migration.repository');
+    app()->forgetInstance('migrator');
 
     Schema::create('custom_migration_ledger', function (Blueprint $table) {
         $table->increments('id');

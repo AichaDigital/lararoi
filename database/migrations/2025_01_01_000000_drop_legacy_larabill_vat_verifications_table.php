@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Migrations\MigrationRepositoryInterface;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -70,9 +71,14 @@ return new class extends Migration
 
         // Mid-upgrade lararoi state (create ran on an earlier attempt, rename
         // pending): the physical lararoi shape — the plain composite index the
-        // rename migration drops by name — corroborated by the canonical
-        // create row is the one state the rename is entitled to finish.
-        if ($hasPlainComposite && in_array(self::LARAROI_CREATE_MIGRATION, $ran, true)) {
+        // rename migration drops by name PLUS the full column set the create
+        // produced — corroborated by the canonical create row is the one
+        // state the rename is entitled to finish. The full-shape requirement
+        // keeps a stale/copied create row + an app table that merely has the
+        // composite index from slipping through to the rename.
+        if ($hasPlainComposite
+            && in_array(self::LARAROI_CREATE_MIGRATION, $ran, true)
+            && $this->matchesLararoiCreateShape()) {
             return;
         }
 
@@ -138,23 +144,55 @@ return new class extends Migration
     }
 
     /**
-     * The framework repository is the single source of truth for where the
-     * ledger lives (custom migrations table, connection or repository
-     * binding) — never re-derive it from config by hand.
+     * The full column set lararoi's create migration (2025_01_01_000001)
+     * produces — the second half of the mid-upgrade proof alongside the
+     * plain composite index.
+     */
+    private function matchesLararoiCreateShape(): bool
+    {
+        return Schema::hasColumns('vat_verifications', [
+            'id',
+            'vat_code',
+            'country_code',
+            'is_valid',
+            'company_name',
+            'company_address',
+            'api_source',
+            'response_data',
+            'checked_at',
+            'verified_at',
+            'expires_at',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ]);
+    }
+
+    /**
+     * The RUNNING migrator's repository is the single source of truth for
+     * where the ledger lives (custom migrations table, connection or
+     * repository binding) — never re-derive it from config by hand.
      */
     private function migrationRepository(): MigrationRepositoryInterface
     {
-        return app('migration.repository');
+        return app(Migrator::class)->getRepository();
     }
 
     /**
      * Explicit operator decision for unproven states. Read through config —
      * the package's mergeConfigFrom guarantees the `upgrade` key exists even
      * when the consumer's published config predates it, and the config layer
-     * (unlike a direct env() call) survives config:cache.
+     * (unlike a direct env() call) survives config:cache. Parsed strictly:
+     * only an explicit affirmative (true, 1, 'on', 'yes') arms the
+     * DESTRUCTIVE hatch — a published config carrying the string 'false' or
+     * 'off' must never drop a table.
      */
     private function operatorAssumesLegacy(): bool
     {
-        return (bool) config('lararoi.upgrade.assume_legacy_vat_table', false);
+        return filter_var(
+            config('lararoi.upgrade.assume_legacy_vat_table', false),
+            FILTER_VALIDATE_BOOL,
+            FILTER_NULL_ON_FAILURE,
+        ) ?? false;
     }
 };
