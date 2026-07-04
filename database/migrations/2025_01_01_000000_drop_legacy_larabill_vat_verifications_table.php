@@ -71,12 +71,16 @@ return new class extends Migration
 
         // Mid-upgrade lararoi state (create ran on an earlier attempt, rename
         // pending): the physical lararoi shape — the plain composite index the
-        // rename migration drops by name PLUS the full column set the create
-        // produced — corroborated by the canonical create row is the one
-        // state the rename is entitled to finish. The full-shape requirement
-        // keeps a stale/copied create row + an app table that merely has the
-        // composite index from slipping through to the rename.
+        // rename migration drops by name, WITHOUT the legacy unique composite
+        // (the create never produces one), PLUS the full column set —
+        // corroborated by the canonical create row is the one state the
+        // rename is entitled to finish. The index-set requirement is the
+        // discriminating proof: column names alone cannot tell the schemas
+        // apart (legacy larabill carries the same 14 names), and a table
+        // carrying BOTH composites is not the create's output no matter what
+        // the ledger says.
         if ($hasPlainComposite
+            && ! $hasUniqueComposite
             && in_array(self::LARAROI_CREATE_MIGRATION, $ran, true)
             && $this->matchesLararoiCreateShape()) {
             return;
