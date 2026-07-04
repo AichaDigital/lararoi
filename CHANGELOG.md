@@ -4,6 +4,11 @@ All notable changes to `lararoi` will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.0.3] - 2026-07-04
+
+### Fixed
+- Upgrade path from larabill 3.x (AID-324): a new preflight migration (`2025_01_01_000000_drop_legacy_larabill_vat_verifications_table`) runs before the cache-table create. When the migrations ledger proves a pre-existing `vat_verifications` table is larabill 3.x's legacy VIES cache (its `2024_12_01_000007_create_vat_verifications_table` row), the preflight drops the table — disposable, TTL-bound cache data — together with the orphaned ledger row, letting lararoi create its canonical schema fresh; a homonymous table without that proof aborts the migration loudly with recovery steps (see larabill's packaged `UPGRADE-4.0.md`) instead of being claimed. A naive `hasTable` guard was rejected on purpose: it would let the legacy schema (UNIQUE composite index, string `company_address`) through to the rename migration, which drops the plain composite index by name and would crash halfway. Closes the "Known upgrade-path gap" documented under v1.0.2.
+
 ## [v1.0.2] - 2026-07-03
 
 ### Fixed
