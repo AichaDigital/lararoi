@@ -232,6 +232,42 @@ it('reads and cleans the ledger through the official migration repository (custo
         ->and(DB::table('custom_migration_ledger')->where('migration', AID324_LEGACY_LEDGER_ROW)->exists())->toBeFalse();
 });
 
+it('does not arm the escape hatch on truthy-but-false config strings', function () {
+    // Re-review P1: (bool) casting arms the DESTRUCTIVE hatch on any
+    // non-empty string — a published/cached config carrying 'false', 'off'
+    // or 'no' would silently drop the table. Only an explicit affirmative
+    // boolean may arm it.
+    aid324SimulatePreAdoptionState();
+    aid324CreateLegacyLarabillTable();
+    config()->set('lararoi.upgrade.assume_legacy_vat_table', 'false');
+
+    expect(fn () => aid324Preflight()->up())
+        ->toThrow(RuntimeException::class, 'UPGRADE-4.0');
+
+    expect(Schema::hasTable('vat_verifications'))->toBeTrue();
+});
+
+it('refuses the mid-upgrade shortcut when the table does not carry the full lararoi column set', function () {
+    // Re-review P1: a stale/copied canonical create row + an app-owned table
+    // that happens to have the plain composite index would slip through the
+    // mid-upgrade branch — the create is then skipped by the ledger and the
+    // rename migration mutates the app's table. The mid-upgrade shortcut
+    // must demand the FULL lararoi create shape, not just one index.
+    aid324SimulatePreAdoptionState();
+    DB::table('migrations')->insert(['migration' => AID324_LARAROI_CREATE_ROW, 'batch' => 1]);
+    Schema::create('vat_verifications', function (Blueprint $table) {
+        $table->id();
+        $table->string('vat_code');
+        $table->string('country_code', 2);
+        $table->index(['vat_code', 'country_code']);
+    });
+
+    expect(fn () => aid324Preflight()->up())
+        ->toThrow(RuntimeException::class, 'UPGRADE-4.0');
+
+    expect(Schema::hasTable('vat_verifications'))->toBeTrue();
+});
+
 it('sorts before every other package migration so the migrator always runs the preflight first', function () {
     $files = collect(glob(__DIR__.'/../../database/migrations/*.php'))
         ->map(fn (string $path) => basename($path))
