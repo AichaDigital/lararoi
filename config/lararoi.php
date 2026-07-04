@@ -215,4 +215,24 @@ return [
         //
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Upgrade Preflight (AID-324 / AID-325)
+    |--------------------------------------------------------------------------
+    |
+    | The preflight migration only drops a pre-existing `vat_verifications`
+    | table when it is DOUBLY proven to be larabill 3.x's disposable VIES
+    | cache: the physical index fingerprint AND the larabill migration-ledger
+    | row. When either proof is missing the migration aborts loudly.
+    |
+    | assume_legacy_vat_table is the operator escape hatch for that abort: an
+    | explicit human decision, taken AFTER verifying the table is the legacy
+    | cache and exporting it (e.g. `mysqldump <db> vat_verifications`). Never
+    | leave it enabled permanently — set it for the one deploy that needs it.
+    |
+    */
+    'upgrade' => [
+        'assume_legacy_vat_table' => env('LARAROI_ASSUME_LEGACY_VAT_TABLE', false),
+    ],
+
 ];

@@ -1,30 +1,53 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Migrations\MigrationRepositoryInterface;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Upgrade preflight for consumers coming from larabill 3.x (AID-324).
+ * Upgrade preflight for consumers coming from larabill 3.x (AID-324,
+ * hardened by AID-325 after the post-ship adversarial review of v1.0.3).
  *
  * larabill <= 3.x created its own `vat_verifications` table (migration
  * 2024_12_01_000007) with a schema that diverges from the one this package
  * creates and later renames to `roi_vat_verifications`: a UNIQUE composite
- * index where lararoi expects the plain `..._vat_code_country_code_index`
+ * (vat_code, country_code) index where lararoi expects the plain composite
  * it drops by name, `company_address` as string instead of text, and so on.
  * Letting the legacy table through a naive hasTable guard would crash the
  * rename migration halfway and leave a drifted schema behind.
  *
- * The legacy table is a disposable VIES cache (TTL-bound), so when the
- * migrations ledger PROVES the table is larabill's, it is dropped together
- * with its orphaned ledger row (larabill v4 removed the migration file) and
- * lararoi creates its canonical schema fresh. Without that proof the
- * migration aborts loudly instead of touching a table it cannot claim.
- * Recovery steps live in larabill's packaged UPGRADE-4.0.md.
+ * A drop demands DOUBLE proof (v1.0.4 hardening):
  *
- * The filename sorts immediately before
- * 2025_01_01_000001_create_vat_verifications_table so the migrator always
- * runs this preflight first on a fresh adoption.
+ * - the PHYSICAL fingerprint — the UNIQUE composite index without the plain
+ *   one, the shape only larabill's migration produced; and
+ * - the larabill LEDGER row, which corroborates but is never sufficient
+ *   alone: it only proves the migration once ran, so a copied, squashed or
+ *   stale ledger must never cost a table (adversarial P1:52/P1:33).
+ *
+ * The legacy table is a disposable, TTL-bound VIES cache, but its rows may
+ * hold residual evidence value (raw VIES responses): the packaged upgrade
+ * guidance recommends exporting it before the first migrate. Without double
+ * proof the migration aborts loudly; the only exit is the explicit operator
+ * hatch `lararoi.upgrade.assume_legacy_vat_table` (env
+ * LARAROI_ASSUME_LEGACY_VAT_TABLE), a human decision taken after verifying
+ * and exporting the table.
+ *
+ * Operational caveats, all deliberate:
+ *
+ * - `migrate --pretend` is misleading here: pretend mode returns empty
+ *   results for selects, so hasTable()/ledger probes can branch as if
+ *   nothing exists — the real run may drop or abort where the dry run
+ *   showed a no-op.
+ * - The drop runs BEFORE the ledger cleanup: if the process dies between
+ *   the two, the re-run sees no table and no-ops (the orphaned row is
+ *   inert). The inverse order would leave a table without proof and turn
+ *   the re-run into a hard abort.
+ * - down() restores nothing: the dropped table was a disposable cache and
+ *   the hatch instructions demand an export first.
+ *
+ * The filename sorts before every other package migration so the migrator
+ * always runs this preflight first on a fresh adoption.
  */
 return new class extends Migration
 {
@@ -41,26 +64,48 @@ return new class extends Migration
             return;
         }
 
-        $ledger = $this->migrationsTable();
+        [$hasPlainComposite, $hasUniqueComposite] = $this->compositeIndexFingerprint();
 
-        // Mid-upgrade lararoi state (create ran on an earlier version, rename
-        // pending): the table is lararoi's own — leave it for the rename.
-        if (DB::table($ledger)->where('migration', self::LARAROI_CREATE_MIGRATION)->exists()) {
+        $repository = $this->migrationRepository();
+        $ran = $repository->getRan();
+
+        // Mid-upgrade lararoi state (create ran on an earlier attempt, rename
+        // pending): the physical lararoi shape — the plain composite index the
+        // rename migration drops by name, WITHOUT the legacy unique composite
+        // (the create never produces one), PLUS the full column set —
+        // corroborated by the canonical create row is the one state the
+        // rename is entitled to finish. The index-set requirement is the
+        // discriminating proof: column names alone cannot tell the schemas
+        // apart (legacy larabill carries the same 14 names), and a table
+        // carrying BOTH composites is not the create's output no matter what
+        // the ledger says.
+        if ($hasPlainComposite
+            && ! $hasUniqueComposite
+            && in_array(self::LARAROI_CREATE_MIGRATION, $ran, true)
+            && $this->matchesLararoiCreateShape()) {
             return;
         }
 
-        if (DB::table($ledger)->where('migration', self::LEGACY_LARABILL_MIGRATION)->exists()) {
+        $legacyProven = $hasUniqueComposite
+            && ! $hasPlainComposite
+            && in_array(self::LEGACY_LARABILL_MIGRATION, $ran, true);
+
+        if ($legacyProven || $this->operatorAssumesLegacy()) {
             Schema::drop('vat_verifications');
-            DB::table($ledger)->where('migration', self::LEGACY_LARABILL_MIGRATION)->delete();
+
+            $repository->delete((object) ['migration' => self::LEGACY_LARABILL_MIGRATION]);
 
             return;
         }
 
         throw new RuntimeException(
-            'lararoi: a `vat_verifications` table already exists but the migrations ledger does not prove it is '
-            .'larabill 3.x\'s legacy VIES cache, so it will not be dropped automatically. If the table belongs to '
-            .'another part of your application, rename or back it up first; if it is a leftover you own, drop it '
-            .'(and any stale migration-ledger rows) and re-run `php artisan migrate`. See larabill\'s UPGRADE-4.0.md.'
+            'lararoi: a `vat_verifications` table exists but it cannot be doubly proven (physical index '
+            .'fingerprint + migrations-ledger row) to be larabill 3.x\'s disposable VIES cache, so it will '
+            .'not be dropped automatically. If the table belongs to your application, rename or back it up, '
+            .'then re-run `php artisan migrate`. If you have verified it IS the legacy larabill cache, '
+            .'export it first (e.g. `mysqldump <db> vat_verifications > vat_verifications-pre-lararoi.sql`) '
+            .'and set LARAROI_ASSUME_LEGACY_VAT_TABLE=true (config `lararoi.upgrade.assume_legacy_vat_table`) '
+            .'so this preflight can claim it. See larabill\'s UPGRADE-4.0.md.'
         );
     }
 
@@ -69,16 +114,89 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Nothing to restore: the dropped table was a disposable legacy cache.
+        // Nothing to restore: the dropped table was a disposable legacy cache
+        // and the hatch instructions demand an export before forcing the drop.
     }
 
-    private function migrationsTable(): string
+    /**
+     * Physical fingerprint of the composite (vat_code, country_code) indexes,
+     * matched structurally (columns + uniqueness, never index names) so
+     * database prefixes cannot skew the verdict.
+     *
+     * @return array{0: bool, 1: bool} [plain composite present, unique composite present]
+     */
+    private function compositeIndexFingerprint(): array
     {
-        // Laravel >= 11 nests the ledger table under database.migrations.table;
-        // older skeletons kept a plain string. Fall back to the default name.
-        $config = config('database.migrations', 'migrations');
-        $table = is_array($config) ? ($config['table'] ?? null) : $config;
+        $hasPlain = false;
+        $hasUnique = false;
 
-        return is_string($table) && $table !== '' ? $table : 'migrations';
+        foreach (Schema::getIndexes('vat_verifications') as $index) {
+            $columns = array_map('strtolower', (array) ($index['columns'] ?? []));
+
+            if ($columns !== ['vat_code', 'country_code'] || ($index['primary'] ?? false)) {
+                continue;
+            }
+
+            if ($index['unique'] ?? false) {
+                $hasUnique = true;
+            } else {
+                $hasPlain = true;
+            }
+        }
+
+        return [$hasPlain, $hasUnique];
+    }
+
+    /**
+     * The full column set lararoi's create migration (2025_01_01_000001)
+     * produces — the second half of the mid-upgrade proof alongside the
+     * plain composite index.
+     */
+    private function matchesLararoiCreateShape(): bool
+    {
+        return Schema::hasColumns('vat_verifications', [
+            'id',
+            'vat_code',
+            'country_code',
+            'is_valid',
+            'company_name',
+            'company_address',
+            'api_source',
+            'response_data',
+            'checked_at',
+            'verified_at',
+            'expires_at',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+        ]);
+    }
+
+    /**
+     * The RUNNING migrator's repository is the single source of truth for
+     * where the ledger lives (custom migrations table, connection or
+     * repository binding) — never re-derive it from config by hand.
+     */
+    private function migrationRepository(): MigrationRepositoryInterface
+    {
+        return app(Migrator::class)->getRepository();
+    }
+
+    /**
+     * Explicit operator decision for unproven states. Read through config —
+     * the package's mergeConfigFrom guarantees the `upgrade` key exists even
+     * when the consumer's published config predates it, and the config layer
+     * (unlike a direct env() call) survives config:cache. Parsed strictly:
+     * only an explicit affirmative (true, 1, 'on', 'yes') arms the
+     * DESTRUCTIVE hatch — a published config carrying the string 'false' or
+     * 'off' must never drop a table.
+     */
+    private function operatorAssumesLegacy(): bool
+    {
+        return filter_var(
+            config('lararoi.upgrade.assume_legacy_vat_table', false),
+            FILTER_VALIDATE_BOOL,
+            FILTER_NULL_ON_FAILURE,
+        ) ?? false;
     }
 };

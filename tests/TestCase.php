@@ -16,13 +16,32 @@ class TestCase extends Orchestra
 
     public function getEnvironmentSetUp($app): void
     {
-        // Setup default database to use sqlite :memory:
+        // Default engine: sqlite :memory: (fast, transaction-friendly).
+        // LARAROI_TEST_DB_DRIVER=mysql switches the suite to a real MySQL —
+        // the release gate for the destructive preflight migration, whose
+        // fingerprint logic rides on Schema::getIndexes() metadata that
+        // sqlite alone cannot vouch for (AID-325).
         $app['config']->set('database.default', 'testing');
-        $app['config']->set('database.connections.testing', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ]);
+
+        if (env('LARAROI_TEST_DB_DRIVER') === 'mysql') {
+            $app['config']->set('database.connections.testing', [
+                'driver' => 'mysql',
+                'host' => env('DB_HOST', '127.0.0.1'),
+                'port' => env('DB_PORT', '3306'),
+                'database' => env('DB_DATABASE', 'lararoi_test'),
+                'username' => env('DB_USERNAME', 'root'),
+                'password' => env('DB_PASSWORD', ''),
+                'charset' => 'utf8mb4',
+                'collation' => 'utf8mb4_unicode_ci',
+                'prefix' => '',
+            ]);
+        } else {
+            $app['config']->set('database.connections.testing', [
+                'driver' => 'sqlite',
+                'database' => ':memory:',
+                'prefix' => '',
+            ]);
+        }
 
         // Setup default cache to use array driver
         $app['config']->set('cache.default', 'array');
