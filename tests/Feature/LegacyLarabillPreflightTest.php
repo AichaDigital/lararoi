@@ -273,6 +273,26 @@ it('refuses the mid-upgrade shortcut when the table does not carry the full lara
     expect(Schema::hasTable('vat_verifications'))->toBeTrue();
 });
 
+it('refuses the mid-upgrade shortcut when the legacy unique composite is also present', function () {
+    // Round-3 P1: hasColumns() checks names only and the legacy larabill
+    // table carries the same 14 names — the discriminating physical proof is
+    // the INDEX SET: lararoi's create yields the plain composite and never
+    // the unique one. A table carrying BOTH (a legacy table repaired by hand
+    // plus a copied canonical create row) must abort; letting it through
+    // sends the rename against a table lararoi cannot claim.
+    aid324SimulatePreAdoptionState();
+    DB::table('migrations')->insert(['migration' => AID324_LARAROI_CREATE_ROW, 'batch' => 1]);
+    aid324CreateLegacyLarabillTable();
+    Schema::table('vat_verifications', function (Blueprint $table) {
+        $table->index(['vat_code', 'country_code']);
+    });
+
+    expect(fn () => aid324Preflight()->up())
+        ->toThrow(RuntimeException::class, 'UPGRADE-4.0');
+
+    expect(Schema::hasTable('vat_verifications'))->toBeTrue();
+});
+
 it('sorts before every other package migration so the migrator always runs the preflight first', function () {
     $files = collect(glob(__DIR__.'/../../database/migrations/*.php'))
         ->map(fn (string $path) => basename($path))
