@@ -4,6 +4,7 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -46,7 +47,9 @@ class ViesApiProvider implements VatProviderInterface
 
         // Use test endpoint if no secret is configured
         $endpoint = ($this->apiSecret === null || $this->apiSecret === '') ? 'api-test' : 'api';
-        $url = "https://viesapi.eu/{$endpoint}/get/vies/euvat/{$fullVat}";
+        // Encode the input-derived VAT segment so path metacharacters cannot
+        // alter the request path ($endpoint is internal and safe to interpolate).
+        $url = "https://viesapi.eu/{$endpoint}/get/vies/euvat/".rawurlencode($fullVat);
 
         // Build HTTP request with Laravel Http facade
         $request = Http::timeout($this->timeout)
@@ -106,7 +109,7 @@ class ViesApiProvider implements VatProviderInterface
 
                 Log::warning('VIESAPI HTTP error', [
                     'country' => $countryCode,
-                    'vat' => $vatNumber,
+                    'vat' => VatFormat::mask($vatNumber),
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
@@ -120,7 +123,7 @@ class ViesApiProvider implements VatProviderInterface
         } catch (RequestException $e) {
             Log::warning('VIESAPI request error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 
@@ -128,7 +131,7 @@ class ViesApiProvider implements VatProviderInterface
         } catch (ConnectionException $e) {
             Log::warning('VIESAPI connection error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 

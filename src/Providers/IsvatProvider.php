@@ -4,6 +4,7 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -27,7 +28,9 @@ class IsvatProvider implements VatProviderInterface
     public function verify(string $vatNumber, string $countryCode): array
     {
         $endpoint = $this->useLive ? 'live' : '';
-        $url = "https://www.isvat.eu/{$endpoint}/{$countryCode}/{$vatNumber}";
+        // Encode the input-derived segments so path metacharacters cannot alter
+        // the request path ($endpoint is internal and safe to interpolate).
+        $url = "https://www.isvat.eu/{$endpoint}/".rawurlencode($countryCode).'/'.rawurlencode($vatNumber);
 
         try {
             $response = Http::timeout($this->timeout)
@@ -46,7 +49,7 @@ class IsvatProvider implements VatProviderInterface
                 // 404 without valid JSON structure - this is an error
                 Log::warning('ISVAT API 404 error without valid structure', [
                     'country' => $countryCode,
-                    'vat' => $vatNumber,
+                    'vat' => VatFormat::mask($vatNumber),
                     'body' => $response->body(),
                 ]);
 
@@ -62,7 +65,7 @@ class IsvatProvider implements VatProviderInterface
         } catch (RequestException $e) {
             Log::warning('ISVAT API request error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
                 'status' => $e->response->status(),
             ]);
@@ -71,7 +74,7 @@ class IsvatProvider implements VatProviderInterface
         } catch (ConnectionException $e) {
             Log::warning('ISVAT API connection error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 

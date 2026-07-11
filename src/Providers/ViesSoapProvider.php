@@ -4,6 +4,7 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Support\Facades\Log;
 use SoapClient;
 use SoapFault;
@@ -31,7 +32,7 @@ class ViesSoapProvider implements VatProviderInterface
         $timeout = config('lararoi.timeout', 15);
 
         try {
-            $client = new SoapClient($wsdl, [
+            $client = $this->makeClient($wsdl, [
                 'soap_version' => SOAP_1_1,
                 'exceptions' => true,
                 'trace' => true,
@@ -56,7 +57,7 @@ class ViesSoapProvider implements VatProviderInterface
         } catch (SoapFault $e) {
             Log::warning('VIES SOAP error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'fault_code' => $e->getCode(),
                 'fault_string' => $e->getMessage(),
             ]);
@@ -65,12 +66,24 @@ class ViesSoapProvider implements VatProviderInterface
         } catch (\Exception $e) {
             Log::error('VIES SOAP unexpected error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 
             throw new ApiUnavailableException('VIES_SOAP', $e);
         }
+    }
+
+    /**
+     * Instantiate the SOAP client. Extracted so tests can substitute a client
+     * that raises SoapFault / errors, exercising the error-handling paths a
+     * live SoapClient cannot cover deterministically without the network.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    protected function makeClient(string $wsdl, array $options): SoapClient
+    {
+        return new SoapClient($wsdl, $options);
     }
 
     public function getName(): string

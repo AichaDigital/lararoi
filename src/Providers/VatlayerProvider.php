@@ -4,6 +4,7 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -31,7 +32,7 @@ class VatlayerProvider implements VatProviderInterface
             throw new ApiUnavailableException('VATLAYER', new \Exception('API key not configured'));
         }
 
-        $url = 'http://apilayer.net/api/validate';
+        $url = 'https://apilayer.net/api/validate';
 
         try {
             $response = Http::timeout($this->timeout)
@@ -61,7 +62,7 @@ class VatlayerProvider implements VatProviderInterface
         } catch (RequestException $e) {
             Log::warning('VATLAYER API request error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 
@@ -69,7 +70,7 @@ class VatlayerProvider implements VatProviderInterface
         } catch (ConnectionException $e) {
             Log::warning('VATLAYER API connection error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 

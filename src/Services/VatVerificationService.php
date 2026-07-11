@@ -102,7 +102,7 @@ class VatVerificationService implements VatVerificationServiceInterface
 
         if ($cached !== null && ! $this->isCacheExpired($cached)) {
             Log::debug('VAT verification from cache', [
-                'vat_code' => $vatCode,
+                'vat_code' => VatFormat::mask($vatCode),
                 'cached_at' => $cached['cached_at'] ?? null,
             ]);
 
@@ -155,7 +155,7 @@ class VatVerificationService implements VatVerificationServiceInterface
         } catch (ApiUnavailableException $e) {
             // If all providers fail, return error
             Log::error('All VAT verification providers failed', [
-                'vat_code' => $vatCode,
+                'vat_code' => VatFormat::mask($vatCode),
                 'error' => $e->getMessage(),
             ]);
             throw $e;
@@ -216,7 +216,7 @@ class VatVerificationService implements VatVerificationServiceInterface
             return $this->formatResponse($result, 'fresh');
         } catch (ApiUnavailableException $e) {
             Log::error('VAT verification failed (cache disabled)', [
-                'vat_code' => $vatCode,
+                'vat_code' => VatFormat::mask($vatCode),
                 'error' => $e->getMessage(),
             ]);
             throw $e;
@@ -268,7 +268,7 @@ class VatVerificationService implements VatVerificationServiceInterface
             );
         } catch (\Exception $e) {
             Log::warning('Failed to persist VAT verification', [
-                'vat_code' => $vatCode,
+                'vat_code' => VatFormat::mask($vatCode),
                 'error' => $e->getMessage(),
             ]);
         }

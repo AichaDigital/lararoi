@@ -4,6 +4,16 @@ All notable changes to `lararoi` will be documented in this file.
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-07-11
+
+### Added
+- `VatFormat::mask()` — public helper that masks a VAT number/code for safe logging (keeps the first and last two characters, whole-masks values of four characters or fewer; built on `Str::mask()`). Introduced for the log-hygiene change below and available to consumers.
+
+### Security
+- **Vatlayer requests now use HTTPS instead of plain HTTP.** `VatlayerProvider` called `apilayer.net` over `http://`, so the API key (`access_key`) and the queried VAT travelled unencrypted — interceptable in transit (MITM) and exposed in intermediary proxy logs. Switched to `https://apilayer.net/api/validate`. No API change.
+- **Provider URLs now percent-encode the input-derived path segments.** `ViesRestProvider`, `IsvatProvider` and `ViesApiProvider` interpolated the VAT number and country code straight into the request path; a value carrying `/`, `?` or `#` could alter the path within the (fixed, trusted) host. Each input segment is now `rawurlencode()`d. Transparent for well-formed input (`ES`, `B12345678` are unchanged); `ViesSoapProvider` and `VatlayerProvider` were unaffected (they pass parameters via SOAP/query, already encoded).
+- **The VAT number / VAT code is now masked in logs.** Every provider and `VatVerificationService` logged the full fiscal identifier on API errors; a sole trader's VAT is personal data under GDPR. Logs now emit a masked form (e.g. `B1*****78`) via the new `VatFormat::mask()` helper (built on `Str::mask()`). **Persisted rows and returned results are unchanged — only log output is masked.**
+
 ## [v1.0.4] - 2026-07-04
 
 ### Fixed

@@ -1,6 +1,9 @@
 <?php
 
 use Aichadigital\Lararoi\Providers\ViesSoapProvider;
+use Illuminate\Support\Facades\Log;
+use SoapClient;
+use SoapFault;
 
 describe('ViesSoapProvider - Properties', function () {
     it('indicates it is a free provider', function () {
@@ -50,5 +53,51 @@ describe('ViesSoapProvider - Response Structure', function () {
 
         expect($stub)->toBeArray();
         expect($stub['valid'])->toBeFalse();
+    });
+});
+
+describe('ViesSoapProvider - Security', function () {
+    it('masks the VAT in logs on a SOAP fault', function () {
+        Log::spy();
+
+        $provider = new class extends ViesSoapProvider
+        {
+            protected function makeClient(string $wsdl, array $options): SoapClient
+            {
+                throw new SoapFault('Server', 'boom');
+            }
+        };
+
+        try {
+            $provider->verify('B12345678', 'ES');
+        } catch (Throwable) {
+            // rethrown as ApiUnavailableException
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn ($message, $context = []) => ($context['vat'] ?? null) === 'B1*****78'
+        );
+    });
+
+    it('masks the VAT in logs on an unexpected error', function () {
+        Log::spy();
+
+        $provider = new class extends ViesSoapProvider
+        {
+            protected function makeClient(string $wsdl, array $options): SoapClient
+            {
+                throw new RuntimeException('unexpected');
+            }
+        };
+
+        try {
+            $provider->verify('B12345678', 'ES');
+        } catch (Throwable) {
+            // rethrown as ApiUnavailableException
+        }
+
+        Log::shouldHaveReceived('error')->withArgs(
+            fn ($message, $context = []) => ($context['vat'] ?? null) === 'B1*****78'
+        );
     });
 });
