@@ -2,6 +2,8 @@
 
 namespace Aichadigital\Lararoi\Support;
 
+use Illuminate\Support\Str;
+
 /**
  * Best-effort syntactic validation of intra-community VAT numbers.
  *
@@ -76,5 +78,27 @@ final class VatFormat
         }
 
         return preg_match($pattern, strtoupper($vatNumber)) === 1;
+    }
+
+    /**
+     * Mask a VAT number (or VAT code) for safe logging.
+     *
+     * Keeps only the first and last two characters and replaces the middle
+     * with asterisks, preserving length. Values of four characters or fewer
+     * are fully masked so nothing useful about a short identifier leaks. The
+     * goal is log hygiene for a fiscal identifier (potential PII under GDPR),
+     * not cryptographic protection.
+     */
+    public static function mask(string $value): string
+    {
+        $length = strlen($value);
+
+        // Short values reveal too much if partially shown: mask them whole.
+        if ($length <= 4) {
+            return Str::mask($value, '*', 0);
+        }
+
+        // Keep the first and last two characters, mask the middle.
+        return Str::mask($value, '*', 2, $length - 4);
     }
 }

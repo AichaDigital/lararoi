@@ -4,6 +4,7 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Support\Facades\Log;
 use SoapClient;
 use SoapFault;
@@ -56,7 +57,7 @@ class ViesSoapProvider implements VatProviderInterface
         } catch (SoapFault $e) {
             Log::warning('VIES SOAP error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'fault_code' => $e->getCode(),
                 'fault_string' => $e->getMessage(),
             ]);
@@ -65,7 +66,7 @@ class ViesSoapProvider implements VatProviderInterface
         } catch (\Exception $e) {
             Log::error('VIES SOAP unexpected error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 

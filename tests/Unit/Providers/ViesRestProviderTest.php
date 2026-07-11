@@ -4,6 +4,7 @@ use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Providers\ViesRestProvider;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 describe('ViesRestProvider - Properties', function () {
     it('indicates it is a free provider', function () {
@@ -142,5 +143,35 @@ describe('ViesRestProvider - Response Structure', function () {
 
         expect($stub)->toBeArray();
         expect($stub['valid'])->toBeFalse();
+    });
+});
+
+describe('ViesRestProvider - Security', function () {
+    it('percent-encodes path metacharacters so input cannot alter the request path', function () {
+        Http::fake([
+            'ec.europa.eu/*' => Http::response(['isValid' => false, 'vatNumber' => 'X', 'countryCode' => 'ES'], 200),
+        ]);
+
+        (new ViesRestProvider)->verify('12/34', 'ES');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '12%2F34')
+            && ! str_contains($request->url(), 'vat/12/34'));
+    });
+
+    it('masks the VAT number in logs so the full identifier is not leaked', function () {
+        Log::spy();
+        Http::fake([
+            'ec.europa.eu/*' => Http::response(['error' => 'server error'], 500),
+        ]);
+
+        try {
+            (new ViesRestProvider)->verify('B12345678', 'ES');
+        } catch (Throwable) {
+            // provider rethrows as ApiUnavailableException; we assert on the log only
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn ($message, $context = []) => ($context['vat'] ?? null) === 'B1*****78'
+        );
     });
 });

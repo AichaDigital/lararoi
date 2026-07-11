@@ -4,6 +4,7 @@ namespace Aichadigital\Lararoi\Providers;
 
 use Aichadigital\Lararoi\Contracts\VatProviderInterface;
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
+use Aichadigital\Lararoi\Support\VatFormat;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -25,7 +26,10 @@ class ViesRestProvider implements VatProviderInterface
 
     public function verify(string $vatNumber, string $countryCode): array
     {
-        $url = "https://ec.europa.eu/taxation_customs/vies/rest-api/ms/{$countryCode}/vat/{$vatNumber}";
+        // Encode the input-derived segments so path metacharacters (/, ?, #, …)
+        // cannot alter the request path — the host is fixed, this hardens the path.
+        $url = 'https://ec.europa.eu/taxation_customs/vies/rest-api/ms/'
+            .rawurlencode($countryCode).'/vat/'.rawurlencode($vatNumber);
 
         try {
             $response = Http::timeout($this->timeout)
@@ -52,7 +56,7 @@ class ViesRestProvider implements VatProviderInterface
         } catch (RequestException $e) {
             Log::warning('VIES REST API request error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 
@@ -60,7 +64,7 @@ class ViesRestProvider implements VatProviderInterface
         } catch (ConnectionException $e) {
             Log::warning('VIES REST API connection error', [
                 'country' => $countryCode,
-                'vat' => $vatNumber,
+                'vat' => VatFormat::mask($vatNumber),
                 'error' => $e->getMessage(),
             ]);
 

@@ -223,3 +223,16 @@ describe('IsvatProvider - Response Structure', function () {
         expect($stub['valid'])->toBeFalse();
     });
 });
+
+describe('IsvatProvider - Security', function () {
+    it('percent-encodes path metacharacters so input cannot alter the request path', function () {
+        Http::fake([
+            'www.isvat.eu/*' => Http::response(['valid' => false, 'vatNumber' => 'X', 'countryCode' => 'ES'], 404),
+        ]);
+
+        (new IsvatProvider)->verify('12/34', 'ES');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '12%2F34')
+            && ! str_contains($request->url(), '/12/34'));
+    });
+});

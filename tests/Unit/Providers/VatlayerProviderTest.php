@@ -164,3 +164,19 @@ describe('VatlayerProvider - Response Structure', function () {
         expect($stub['valid'])->toBeFalse();
     });
 });
+
+describe('VatlayerProvider - Security', function () {
+    it('sends the request over HTTPS, never plain HTTP', function () {
+        Http::fake([
+            '*' => Http::response([
+                'valid' => false,
+                'vat_number' => 'ESB12345678',
+                'country_code' => 'ES',
+            ], 200),
+        ]);
+
+        (new VatlayerProvider('test_key'))->verify('B12345678', 'ES');
+
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://'));
+    });
+});

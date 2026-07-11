@@ -198,3 +198,16 @@ describe('ViesApiProvider - Response Structure', function () {
         expect($stub['error']['description'])->toContain('invalid');
     });
 });
+
+describe('ViesApiProvider - Security', function () {
+    it('percent-encodes path metacharacters so input cannot alter the request path', function () {
+        Http::fake([
+            'viesapi.eu/*' => Http::response(['valid' => false, 'vatNumber' => 'X', 'countryCode' => 'ES'], 200),
+        ]);
+
+        (new ViesApiProvider('test_key', 'test_secret'))->verify('12/34', 'ES');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'ES12%2F34')
+            && ! str_contains($request->url(), 'euvat/ES12/34'));
+    });
+});

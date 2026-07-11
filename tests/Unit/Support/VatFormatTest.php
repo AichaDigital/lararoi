@@ -45,3 +45,19 @@ describe('VatFormat - unknown countries are permissive', function () {
             ->and(VatFormat::isKnownCountry('ESP'))->toBeFalse();
     });
 });
+
+describe('VatFormat - masking', function () {
+    it('masks a VAT number keeping only the first and last two characters', function () {
+        expect(VatFormat::mask('B12345678'))->toBe('B1*****78');
+    });
+
+    it('fully masks short values so nothing useful leaks', function () {
+        expect(VatFormat::mask('AB12'))->toBe('****')
+            ->and(VatFormat::mask('AB'))->toBe('**')
+            ->and(VatFormat::mask(''))->toBe('');
+    });
+
+    it('preserves the length of the masked value', function () {
+        expect(strlen(VatFormat::mask('ESB12345678')))->toBe(strlen('ESB12345678'));
+    });
+});
