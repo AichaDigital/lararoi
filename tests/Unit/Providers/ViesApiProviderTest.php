@@ -2,8 +2,12 @@
 
 use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Providers\ViesApiProvider;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 describe('ViesApiProvider - Properties', function () {
     it('indicates it is NOT a free provider', function () {
@@ -209,5 +213,60 @@ describe('ViesApiProvider - Security', function () {
 
         Http::assertSent(fn ($request) => str_contains($request->url(), 'ES12%2F34')
             && ! str_contains($request->url(), 'euvat/ES12/34'));
+    });
+
+    it('masks the VAT in logs on a generic HTTP error', function () {
+        Log::spy();
+        Http::fake([
+            'viesapi.eu/*' => Http::response(['unexpected' => 'shape'], 500),
+        ]);
+
+        try {
+            (new ViesApiProvider('test_key', 'test_secret'))->verify('B12345678', 'ES');
+        } catch (Throwable) {
+            // provider rethrows as ApiUnavailableException
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn ($message, $context = []) => ($context['vat'] ?? null) === 'B1*****78'
+        );
+    });
+
+    it('masks the VAT in logs on a connection error', function () {
+        Log::spy();
+        Http::fake([
+            'viesapi.eu/*' => function () {
+                throw new ConnectionException('Connection timeout');
+            },
+        ]);
+
+        try {
+            (new ViesApiProvider('test_key', 'test_secret'))->verify('B12345678', 'ES');
+        } catch (Throwable) {
+            // provider rethrows as ApiUnavailableException
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn ($message, $context = []) => ($context['vat'] ?? null) === 'B1*****78'
+        );
+    });
+
+    it('masks the VAT in logs on a request exception', function () {
+        Log::spy();
+        Http::fake([
+            'viesapi.eu/*' => fn () => throw new RequestException(
+                new Response(new GuzzleResponse(500, [], 'error'))
+            ),
+        ]);
+
+        try {
+            (new ViesApiProvider('test_key', 'test_secret'))->verify('B12345678', 'ES');
+        } catch (Throwable) {
+            // provider rethrows as ApiUnavailableException
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(
+            fn ($message, $context = []) => ($context['vat'] ?? null) === 'B1*****78'
+        );
     });
 });

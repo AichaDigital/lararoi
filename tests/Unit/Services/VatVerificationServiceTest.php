@@ -1,11 +1,13 @@
 <?php
 
 use Aichadigital\Lararoi\Contracts\VatVerificationServiceInterface;
+use Aichadigital\Lararoi\Exceptions\ApiUnavailableException;
 use Aichadigital\Lararoi\Exceptions\VatVerificationException;
 use Aichadigital\Lararoi\Models\VatVerification;
 use Aichadigital\Lararoi\Services\VatProviderManager;
 use Aichadigital\Lararoi\Services\VatVerificationService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 describe('VatVerificationService - Basic Verification', function () {
     it('resolves service from container', function () {
@@ -459,5 +461,50 @@ describe('VatVerificationService - VAT Normalization', function () {
         } catch (Exception $e) {
             $this->markTestSkipped('API unavailable');
         }
+    });
+});
+
+describe('VatVerificationService - Log hygiene (PII)', function () {
+    it('masks the VAT code in logs when all providers fail on the cache path', function () {
+        config()->set('lararoi.cache.enabled', true);
+        Cache::flush();
+        Log::spy();
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')
+            ->andThrow(new ApiUnavailableException('VIES_SOAP', new Exception('provider down')));
+
+        $service = new VatVerificationService($manager);
+
+        try {
+            $service->verifyVatNumber('B12345678', 'ES');
+        } catch (Throwable) {
+            // all providers failed; rethrown after logging
+        }
+
+        Log::shouldHaveReceived('error')->withArgs(
+            fn ($message, $context = []) => ($context['vat_code'] ?? null) === 'ES*******78'
+        );
+    });
+
+    it('masks the VAT code in logs when verification fails with cache disabled', function () {
+        config()->set('lararoi.cache.enabled', false);
+        Log::spy();
+
+        $manager = Mockery::mock(VatProviderManager::class);
+        $manager->shouldReceive('verify')
+            ->andThrow(new ApiUnavailableException('VIES_SOAP', new Exception('provider down')));
+
+        $service = new VatVerificationService($manager);
+
+        try {
+            $service->verifyVatNumber('B12345678', 'ES');
+        } catch (Throwable) {
+            // rethrown after logging
+        }
+
+        Log::shouldHaveReceived('error')->withArgs(
+            fn ($message, $context = []) => ($context['vat_code'] ?? null) === 'ES*******78'
+        );
     });
 });
