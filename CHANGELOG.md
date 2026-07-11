@@ -4,7 +4,10 @@ All notable changes to `lararoi` will be documented in this file.
 
 ## [Unreleased]
 
-## [v1.0.5] - 2026-07-11
+## [v1.1.0] - 2026-07-11
+
+### Added
+- `VatFormat::mask()` — public helper that masks a VAT number/code for safe logging (keeps the first and last two characters, whole-masks values of four characters or fewer; built on `Str::mask()`). Introduced for the log-hygiene change below and available to consumers.
 
 ### Security
 - **Vatlayer requests now use HTTPS instead of plain HTTP.** `VatlayerProvider` called `apilayer.net` over `http://`, so the API key (`access_key`) and the queried VAT travelled unencrypted — interceptable in transit (MITM) and exposed in intermediary proxy logs. Switched to `https://apilayer.net/api/validate`. No API change.
