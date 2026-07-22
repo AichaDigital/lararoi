@@ -1,0 +1,213 @@
+# CI de aichadigital/lararoi en GitLab self-hosted (ADE-295 — Fase 3).
+# Traducción de .github/workflows/{run-tests,phpstan,code-coverage,phpinsights,
+# fix-php-code-style-issues}.yml.
+# Runner: aichadigital-runner01 (VM 891 en prohe03), tags [aichadigital, docker].
+# El runner es opt-in (run_untagged=false): sin estos tags no se ejecuta nada.
+#
+# Dos cosas de este paquete que NO son como parecen, y que decidirlas mal habría
+# alterado lo que el CI garantiza:
+#
+#   1. `phpinsights` corría con `continue-on-error: true`. Con sus cuatro
+#      umbrales (quality 75 / complexity 80 / architecture 70 / style 80) parece
+#      un gate, pero NO lo es: informa. Aquí va con `allow_failure: true`.
+#      Convertirlo en bloqueante sería añadir un gate que nunca existió.
+#   2. `code-coverage` sí lleva mínimo real: `--min=20`. Se conserva.
+#
+# CAMBIO DE COMPORTAMIENTO DELIBERADO, igual que en laratickets:
+# `fix-php-code-style-issues.yml` no comprobaba el estilo — ejecutaba Pint en
+# modo escritura y COMMITEABA el resultado. No se replica: GitHub es ahora un
+# espejo de solo lectura, y un job que escribe en la rama que prueba convierte el
+# CI en autor del repositorio. Se sustituye por `pint --test`: misma garantía
+# (main formateado), distinto responsable de arreglarlo.
+#
+# NO traducido: los filtros `paths:` (optimización de coste, no gate) y
+# `update-changelog.yml`, cuya automatización de release deja de existir con
+# Actions apagado — decisión pendiente en ADE-295, no se sustituye en silencio.
+
+stages:
+  - quality
+  - test
+
+default:
+  tags:
+    - aichadigital
+    - docker
+  # Equivalente a `concurrency: cancel-in-progress: true`.
+  interruptible: true
+  # GitHub fijaba timeout-minutes: 10; se conserva la red de seguridad holgada,
+  # porque aquí no hay caché de dependencias de Actions.
+  timeout: 20 minutes
+
+variables:
+  COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.composer-cache"
+  COMPOSER_ALLOW_SUPERUSER: "1"
+  COMPOSER_PROCESS_TIMEOUT: "0"
+  GIT_DEPTH: "20"
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Paquete: sin composer.lock versionado → `composer update`, como en GitHub.
+.php:
+  before_script:
+    - php -v | head -1
+    - composer update --prefer-stable --prefer-dist --no-interaction --no-progress
+  cache:
+    key: "composer-php${PHP_VERSION}-l${LARAVEL}"
+    paths:
+      - .composer-cache/
+
+# --- Stage: quality -----------------------------------------------------------
+
+manifest:
+  stage: quality
+  image: aichadigital/laravel-ci:8.3
+  script:
+    - composer validate --strict --no-interaction
+
+pint:
+  stage: quality
+  image: aichadigital/laravel-ci:8.3
+  variables:
+    PHP_VERSION: "8.3"
+  extends: .php
+  script:
+    # NO `composer format`: apunta a `vendor/bin/pint` en modo escritura, que en
+    # CI no falla — reformatea, deja el árbol sucio y reporta éxito.
+    - ./vendor/bin/pint --test
+
+phpstan:
+  stage: quality
+  image: aichadigital/laravel-ci:8.3
+  variables:
+    PHP_VERSION: "8.3"
+  extends: .php
+  script:
+    # Sin `--error-format=github`: aquí produciría anotaciones que nadie lee.
+    - composer phpstan
+
+# Informativo, NO bloqueante — fiel al `continue-on-error: true` del original.
+phpinsights:
+  stage: quality
+  image: aichadigital/laravel-ci:8.3
+  variables:
+    PHP_VERSION: "8.3"
+  extends: .php
+  allow_failure: true
+  script:
+    - composer phpinsights
+
+# --- Stage: test --------------------------------------------------------------
+
+pest:
+  stage: test
+  image: aichadigital/laravel-ci:$PHP_VERSION
+  parallel:
+    matrix:
+      - PHP_VERSION: ["8.3", "8.4"]
+        LARAVEL: "12.*"
+        TESTBENCH: "10.*"
+      - PHP_VERSION: ["8.3", "8.4"]
+        LARAVEL: "13.*"
+        TESTBENCH: "11.*"
+  cache:
+    key: "composer-php${PHP_VERSION}-l${LARAVEL}"
+    paths:
+      - .composer-cache/
+  before_script:
+    - php -v | head -1
+    - composer require "laravel/framework:${LARAVEL}" "orchestra/testbench:${TESTBENCH}" --no-interaction --no-update
+    - composer update --prefer-stable --prefer-dist --no-interaction --no-progress
+    - composer show -D
+  script:
+    - ./vendor/bin/pest --ci
+
+# Cobertura CON gate real (`--min=20`), a diferencia de otros paquetes de la
+# umbrela. Codecov se retira —subía con `fail_ci_if_error: false`, nunca fue el
+# gate— y se usa la cobertura nativa de GitLab.
+#
+# La imagen trae PCOV deshabilitado (el workflow usaba Xdebug); se activa y se
+# ASIERTA: un gate de cobertura sin driver no falla, mide cero y reporta éxito.
+coverage:
+  stage: test
+  image: aichadigital/laravel-ci:8.3
+  variables:
+    PHP_VERSION: "8.3"
+  extends: .php
+  script:
+    - echo 'pcov.enabled=1' > /usr/local/etc/php/conf.d/zz-pcov-on.ini
+    - |
+      if ! php -r 'exit(ini_get("pcov.enabled") ? 0 : 1);'; then
+        echo "PCOV no se activó — el gate --min=20 mediría cero y reportaría éxito"
+        exit 1
+      fi
+    - ./vendor/bin/pest --coverage --coverage-clover=coverage.xml --min=20
+  # Sin ancla `^`: Pest emite "<ESC>[1mTotal: NN.N %<ESC>[22m" (lección de
+  # lara-content, 2026-07-22).
+  coverage: '/Total:\s*(\d+\.\d+)\s*%/'
+  artifacts:
+    when: always
+    paths:
+      - coverage.xml
+    expire_in: 1 week
+
+# Release gate de AID-325: la migración destructiva de preflight decide los DROP
+# a partir de `Schema::getIndexes()`, y SQLite no puede responder por el motor de
+# producción — de ahí que la suite ENTERA se repita contra MySQL real.
+#
+# La trampa aquí es peor que la de un servicio mal apuntado. `tests/Pest.php`
+# ramifica sobre `env('LARAROI_TEST_DB_DRIVER') === 'mysql'`: si la variable no
+# llega, NO falla nada — la suite cae a SQLite con RefreshDatabase, pasa, y el
+# «release gate» queda en verde sin haber tocado MySQL en ningún momento.
+#
+# Por eso al final se comprueba que el esquema existe DE VERDAD en MySQL: el
+# `beforeEach` hace `migrate:fresh` contra él, así que al terminar la base tiene
+# tablas. Cero tablas = la suite corrió sobre SQLite y este job no probó nada.
+test-mysql:
+  stage: test
+  image: aichadigital/laravel-ci:8.4
+  services:
+    - name: mysql:8.4
+      alias: mysql
+  variables:
+    PHP_VERSION: "8.4"
+    LARAVEL: "13.*"
+    MYSQL_ROOT_PASSWORD: password
+    MYSQL_DATABASE: lararoi_test
+    LARAROI_TEST_DB_DRIVER: mysql
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_DATABASE: lararoi_test
+    DB_USERNAME: root
+    DB_PASSWORD: password
+  before_script:
+    - php -v | head -1
+    - composer require "laravel/framework:13.*" "orchestra/testbench:11.*" --no-interaction --no-update
+    - composer update --prefer-stable --prefer-dist --no-interaction --no-progress
+  script:
+    - |
+      for i in $(seq 1 60); do
+        php -r 'try { new PDO("mysql:host=".getenv("DB_HOST").";port=".getenv("DB_PORT"), getenv("DB_USERNAME"), getenv("DB_PASSWORD")); exit(0); } catch (Throwable $e) { exit(1); }' && break
+        sleep 2
+      done
+    - |
+      if ! php -r 'try { new PDO("mysql:host=".getenv("DB_HOST").";port=".getenv("DB_PORT"), getenv("DB_USERNAME"), getenv("DB_PASSWORD")); exit(0); } catch (Throwable $e) { exit(1); }'; then
+        echo "MySQL no respondió en 120 s"
+        exit 1
+      fi
+    - ./vendor/bin/pest --ci
+    - |
+      TABLES=$(php -r '
+        $p = new PDO("mysql:host=".getenv("DB_HOST").";port=".getenv("DB_PORT"), getenv("DB_USERNAME"), getenv("DB_PASSWORD"));
+        $q = $p->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ?");
+        $q->execute([getenv("DB_DATABASE")]);
+        echo (int) $q->fetchColumn();
+      ')
+      echo "Tablas en $DB_DATABASE tras la suite: $TABLES"
+      if [ "$TABLES" -eq 0 ]; then
+        echo "La suite NO corrió contra MySQL: la base está vacía."
+        echo "tests/Pest.php ramifica sobre LARAROI_TEST_DB_DRIVER; sin esa variable cae a SQLite y pasa en verde."
+        exit 1
+      fi
