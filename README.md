@@ -1,4 +1,20 @@
 # Lararoi
+<!-- AI-BADGES:START profile=essential -->
+[![Latest Version](https://img.shields.io/packagist/v/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
+[![Total Downloads](https://img.shields.io/packagist/dt/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
+[![Pipeline](https://gitlab.castris.com/aichadigital/lararoi/badges/main/pipeline.svg?style=flat-square)](https://gitlab.castris.com/aichadigital/lararoi/-/pipelines)
+[![Coverage](https://gitlab.castris.com/aichadigital/lararoi/badges/main/coverage.svg?style=flat-square)](https://gitlab.castris.com/aichadigital/lararoi/-/pipelines)
+[![PHPStan level 5](https://img.shields.io/badge/PHPStan-level%205-green.svg?style=flat-square&logo=php)](https://phpstan.org/)
+[![PHP Version](https://img.shields.io/packagist/php-v/aichadigital/lararoi.svg?style=flat-square&logo=php)](https://packagist.org/packages/aichadigital/lararoi)
+[![Laravel Version](https://img.shields.io/badge/Laravel-12.x%20%7C%2013.x-red.svg?style=flat-square&logo=laravel)](https://laravel.com)
+[![License](https://img.shields.io/packagist/l/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
+<!-- AI-BADGES:END -->
+
+> Development happens on
+> [gitlab.castris.com](https://gitlab.castris.com/aichadigital/lararoi).
+> The GitHub repository is a read-only distribution mirror: issues and pull
+> requests opened there are not seen.
+
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/aichadigital/lararoi.svg?style=flat-square)](https://packagist.org/packages/aichadigital/lararoi)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/aichadigital/lararoi/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/aichadigital/lararoi/actions/workflows/run-tests.yml)
