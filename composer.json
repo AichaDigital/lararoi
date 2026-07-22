@@ -20,10 +20,6 @@
             "role": "Developer"
         }
     ],
-    "config": {
-        "process-timeout": 0,
-        "sort-packages": true
-    },
     "require": {
         "php": "^8.3",
         "spatie/laravel-package-tools": "^1.16",
@@ -92,6 +88,7 @@
         ]
     },
     "config": {
+        "process-timeout": 0,
         "sort-packages": true,
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true,
