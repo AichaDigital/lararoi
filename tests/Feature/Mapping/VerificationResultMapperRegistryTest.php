@@ -1,54 +1,13 @@
 <?php
 
-use Aichadigital\Lararoi\Contracts\VerificationResultMapperInterface;
 use Aichadigital\Lararoi\Mappers\IdentityVerificationResultMapper;
 use Aichadigital\Lararoi\Services\VatProviderManager;
 use Aichadigital\Lararoi\Services\VatVerificationService;
 use Aichadigital\Lararoi\Services\VerificationResultMapperRegistry;
-
-/**
- * A tiny consumer mapper: flattens the canonical facts into its own shape.
- */
-class AcmeVatMapper implements VerificationResultMapperInterface
-{
-    public function map(array $canonical): mixed
-    {
-        return [
-            'valid' => (bool) ($canonical['is_valid'] ?? false),
-            'id' => $canonical['vat_code'] ?? null,
-            'name' => $canonical['company_name'] ?? null,
-        ];
-    }
-}
-
-/**
- * A mapper returning a non-array shape, proving map(): mixed is honoured.
- */
-class ScalarVatMapper implements VerificationResultMapperInterface
-{
-    public function map(array $canonical): mixed
-    {
-        return (string) ($canonical['vat_code'] ?? '');
-    }
-}
-
-/**
- * A class that is NOT a mapper — used for the invalid-config guard.
- */
-class NotAMapper {}
-
-/**
- * A class that IS a mapper by type (so the class-string is_a() check passes) but
- * is rebound in the container to a non-mapper instance — used to exercise the
- * defensive runtime instanceof guard that fires after container resolution.
- */
-class ContainerReboundMapper implements VerificationResultMapperInterface
-{
-    public function map(array $canonical): mixed
-    {
-        return $canonical;
-    }
-}
+use Aichadigital\Lararoi\Tests\Fixtures\AcmeVatMapper;
+use Aichadigital\Lararoi\Tests\Fixtures\ContainerReboundMapper;
+use Aichadigital\Lararoi\Tests\Fixtures\NotAMapper;
+use Aichadigital\Lararoi\Tests\Fixtures\ScalarVatMapper;
 
 /**
  * The seven canonical verification facts the mapper receives (D3/D6).
